@@ -1,0 +1,14 @@
+[package]
+name = "bitcoincore-zmq"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+description = "Bitcoin Core ZMQ subscriber"
+homepage = "https://github.com/antonilol/rust-bitcoincore-zmq"
+repository = "https://github.com/antonilol/rust-bitcoincore-zmq"
+keywords = ["bitcoin", "bitcoin-core", "zmq"]
+categories = ["network-programming"]
+
+[dependencies]
+bitcoin = "0.30.0"
+zmq = "0.10.0"
