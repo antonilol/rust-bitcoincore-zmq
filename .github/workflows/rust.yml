@@ -27,6 +27,11 @@ jobs:
         bitcoind -regtest -daemonwait
         bitcoin-cli -regtest createwallet ghactions
         bitcoin-cli -regtest -generate 200
+    - name: Check
+      run: |
+        cargo fmt --check
+        cargo check
+        cargo clippy
     - name: Build
       run: cargo build --verbose
     - name: Run tests
