@@ -2,7 +2,7 @@
 
 ### Usage example
 
-```rs
+```rust
 fn main() {
     for msg in bitcoincore_zmq::sub_zmq(&["tcp://127.0.0.1:28359"]).unwrap() {
         match msg {
