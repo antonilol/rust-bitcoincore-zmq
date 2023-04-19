@@ -14,7 +14,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Install Bitcoin Core
+      run: |
+        curl https://bitcoincore.org/bin/bitcoin-core-24.0.1/bitcoin-24.0.1-x86_64-linux-gnu.tar.gz -o bitcoin-core.tar.gz
+        echo 49df6e444515d457ea0b885d66f521f2a26ca92ccf73d5296082e633544253bf bitcoin-core.tar.gz | sha256sum -c
+        tar xf bitcoin-core.tar.gz
+        sudo cp -r bitcoin-24.0.1/* /usr/local
+    - name: Start Bitcoin Core
+      run: |
+        mkdir -p ~/.bitcoin
+        cp .github/workflows/bitcoin.conf ~/.bitcoin/bitcoin.conf
+        bitcoind -regtest -daemonwait
+        bitcoin-cli -regtest createwallet ghactions
+        bitcoin-cli -regtest -generate 200
     - name: Build
       run: cargo build --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose -- --test-threads=1
+    - name: Stop Bitcoin Core
+      run: |
+        bitcoin-cli -regtest stop
+        cd ~/.bitcoin/regtest
+        tail --pid=$(cat bitcoind.pid) -fn+1 debug.log || cat debug.log

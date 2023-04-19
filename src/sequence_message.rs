@@ -2,7 +2,7 @@ use crate::error::{Error, Result};
 use bitcoin::{hashes::Hash, BlockHash, Txid};
 use core::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SequenceMessage {
     BlockConnect { blockhash: BlockHash },
     BlockDisconnect { blockhash: BlockHash },
