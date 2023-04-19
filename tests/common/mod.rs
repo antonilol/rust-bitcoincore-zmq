@@ -6,13 +6,11 @@ use std::{env, sync::mpsc::Receiver, time::Duration};
 pub const RECV_TIMEOUT: Duration = Duration::from_secs(3);
 
 pub fn setup_rpc() -> Client {
-    let rpc = Client::new(
+    Client::new(
         "http://localhost:18443",
         Auth::CookieFile((env::var("HOME").unwrap() + "/.bitcoin/regtest/.cookie").into()),
     )
-    .expect("unable to connect to Bitcoin Core regtest RPC");
-
-    rpc
+    .expect("unable to connect to Bitcoin Core regtest RPC")
 }
 
 pub fn generate(

@@ -12,14 +12,16 @@ fn test_hashblock() {
 
     let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
 
-    let (block, blockhash) = match recv_timeout_2(&receiver) {
-        (Message::Block(block, _), Message::HashBlock(blockhash, _)) => (block, blockhash),
-        (Message::HashBlock(blockhash, _), Message::Block(block, _)) => (block, blockhash),
-        (msg1, msg2) => panic!("invalid messages received: ({msg1}, {msg2})"),
-    };
-
-    assert_eq!(rpc_hash, block.block_hash());
-    assert_eq!(rpc_hash, blockhash);
+    match recv_timeout_2(&receiver) {
+        (Message::Block(block, _), Message::HashBlock(blockhash, _))
+        | (Message::HashBlock(blockhash, _), Message::Block(block, _)) => {
+            assert_eq!(rpc_hash, block.block_hash());
+            assert_eq!(rpc_hash, blockhash);
+        }
+        (msg1, msg2) => {
+            panic!("invalid messages received: ({msg1}, {msg2})");
+        }
+    }
 }
 
 #[test]
@@ -31,11 +33,13 @@ fn test_hashtx() {
 
     generate(rpc, 1).expect("rpc call failed");
 
-    let (tx, txid) = match recv_timeout_2(&receiver) {
-        (Message::Tx(tx, _), Message::HashTx(txid, _)) => (tx, txid),
-        (Message::HashTx(txid, _), Message::Tx(tx, _)) => (tx, txid),
-        (msg1, msg2) => panic!("invalid messages received: ({msg1}, {msg2})"),
-    };
-
-    assert_eq!(tx.txid(), txid);
+    match recv_timeout_2(&receiver) {
+        (Message::Tx(tx, _), Message::HashTx(txid, _))
+        | (Message::HashTx(txid, _), Message::Tx(tx, _)) => {
+            assert_eq!(tx.txid(), txid);
+        }
+        (msg1, msg2) => {
+            panic!("invalid messages received: ({msg1}, {msg2})");
+        }
+    }
 }
