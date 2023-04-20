@@ -1,0 +1,39 @@
+name: Integration tests
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bitcoin_core_version:
+          [
+            "22.1",
+            "23.1",
+            "24.0.1",
+          ]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Check
+      run: |
+        cd integration_tests
+        cargo fmt --check
+        cargo check
+        cargo clippy
+    - name: Install Bitcoin Core
+      run: |
+        curl https://bitcoincore.org/bin/bitcoin-core-${{ matrix.bitcoin_core_version }}/bitcoin-${{ matrix.bitcoin_core_version }}-x86_64-linux-gnu.tar.gz -o bitcoin-core.tar.gz
+        tar xf bitcoin-core.tar.gz
+        sudo cp -r bitcoin-${{ matrix.bitcoin_core_version }}/* /usr/local
+    - name: Run tests
+      run: |
+        cd integration_tests
+        ./test.sh

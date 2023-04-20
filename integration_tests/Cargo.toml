@@ -1,0 +1,9 @@
+[package]
+name = "bitcoincore_zmq_integration_tests"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+bitcoin = "0.30.0"
+bitcoincore-rpc = "0.17.0"
+bitcoincore-zmq = { path = ".." }

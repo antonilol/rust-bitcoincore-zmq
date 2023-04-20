@@ -1,12 +1,17 @@
-mod common;
+mod util;
 
+use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{sub_zmq, Message};
-use common::{generate, recv_timeout_2, setup_rpc};
+use util::{generate, recv_timeout_2, setup_rpc};
 
-#[test]
-fn test_hashblock() {
+fn main() {
     let rpc = setup_rpc();
 
+    test_hashblock(&rpc);
+    test_hashtx(&rpc);
+}
+
+fn test_hashblock(rpc: &Client) {
     let receiver = sub_zmq(&["tcp://127.0.0.1:28370", "tcp://127.0.0.1:28372"])
         .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
 
@@ -24,10 +29,7 @@ fn test_hashblock() {
     }
 }
 
-#[test]
-fn test_hashtx() {
-    let rpc = setup_rpc();
-
+fn test_hashtx(rpc: &Client) {
     let receiver = sub_zmq(&["tcp://127.0.0.1:28371", "tcp://127.0.0.1:28373"])
         .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
 
