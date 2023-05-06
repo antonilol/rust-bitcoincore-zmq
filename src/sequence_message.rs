@@ -2,7 +2,7 @@ use crate::error::{Error, Result};
 use bitcoin::{hashes::Hash, BlockHash, Txid};
 use core::fmt;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceMessage {
     BlockConnect { blockhash: BlockHash },
     BlockDisconnect { blockhash: BlockHash },
@@ -35,7 +35,7 @@ impl SequenceMessage {
     }
 
     /// Returns the contained hash (block hash or txid) of this [`SequenceMessage`].
-    pub fn hash(&self) -> [u8; 32] {
+    pub fn into_inner(self) -> [u8; 32] {
         let mut arr = match self {
             Self::BlockConnect { blockhash } | Self::BlockDisconnect { blockhash } => {
                 blockhash.to_byte_array()
@@ -78,6 +78,9 @@ impl TryFrom<Vec<u8>> for SequenceMessage {
             return Err(Error::InvalidSequenceMessageLengthError(value.len()));
         }
 
+        let mut hash: [u8; 32] = value[0..32].try_into().unwrap();
+        hash.reverse();
+
         let label = value[32];
         Ok(match label {
             b'C' | b'D' => {
@@ -85,11 +88,7 @@ impl TryFrom<Vec<u8>> for SequenceMessage {
                     return Err(Error::InvalidSequenceMessageLengthError(value.len()));
                 }
 
-                let mut blockhash: [u8; 32] = value[0..32].try_into().expect(
-                    "a 32-byte slice should always convert to a 32-byte array successfully",
-                );
-                blockhash.reverse();
-                let blockhash = BlockHash::from_byte_array(blockhash);
+                let blockhash = BlockHash::from_byte_array(hash);
 
                 match label {
                     b'C' => Self::BlockConnect { blockhash },
@@ -101,14 +100,8 @@ impl TryFrom<Vec<u8>> for SequenceMessage {
                     return Err(Error::InvalidSequenceMessageLengthError(value.len()));
                 }
 
-                let mut txid: [u8; 32] = value[0..32].try_into().expect(
-                    "a 32-byte slice should always convert to a 32-byte array successfully",
-                );
-                txid.reverse();
-                let txid = Txid::from_byte_array(txid);
-                let mempool_sequence = u64::from_le_bytes(value[33..41].try_into().expect(
-                    "an 8-byte slice should always convert to an 8-byte array successfully",
-                ));
+                let txid = Txid::from_byte_array(hash);
+                let mempool_sequence = u64::from_le_bytes(value[33..41].try_into().unwrap());
 
                 match label {
                     b'A' => Self::MempoolAcceptance { txid, mempool_sequence },
@@ -125,7 +118,7 @@ impl From<SequenceMessage> for Vec<u8> {
         let mut ret = Vec::with_capacity(sm.raw_length());
 
         // blockhash or txid
-        ret.extend_from_slice(&sm.hash());
+        ret.extend_from_slice(&sm.into_inner());
 
         // label
         ret.push(sm.label());

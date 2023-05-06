@@ -1,4 +1,4 @@
-use bitcoin::{consensus, hashes};
+use bitcoin::consensus;
 use core::fmt;
 use std::str;
 
@@ -6,11 +6,11 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    InvalidMutlipartLengthError,
-    InvalidSequenceLengthError,
+    InvalidMutlipartLengthError(usize),
+    InvalidSequenceLengthError(usize),
     InvalidSequenceMessageLengthError(usize),
     InvalidSequenceMessageLabelError(u8),
-    InvalidHashLengthError(hashes::Error),
+    Invalid256BitHashLengthError(usize),
     InvalidTopicError(Vec<u8>),
     BitcoinDeserializationError(consensus::encode::Error),
     ZmqError(zmq::Error),
@@ -28,17 +28,15 @@ impl From<consensus::encode::Error> for Error {
     }
 }
 
-impl From<hashes::Error> for Error {
-    fn from(value: hashes::Error) -> Self {
-        Self::InvalidHashLengthError(value)
-    }
-}
-
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::InvalidMutlipartLengthError => write!(f, "invalid multipart message length"),
-            Error::InvalidSequenceLengthError => write!(f, "invalid sequence length"),
+            Error::InvalidMutlipartLengthError(len) => {
+                write!(f, "invalid multipart message length: {len} (expected 3)")
+            }
+            Error::InvalidSequenceLengthError(len) => {
+                write!(f, "invalid sequence length: {len} (expected 4)")
+            }
             Error::InvalidSequenceMessageLengthError(len) => {
                 write!(f, "invalid message length {len} of message type 'sequence'")
             }
@@ -49,7 +47,9 @@ impl fmt::Display for Error {
                     *label as char, label
                 )
             }
-            Error::InvalidHashLengthError(e) => write!(f, "invalid hash length: {e}"),
+            Error::Invalid256BitHashLengthError(len) => {
+                write!(f, "invalid hash length: {len} (expected 32)")
+            }
             Error::InvalidTopicError(topic) => {
                 write!(f, "invalid message topic ")?;
                 if let Ok(topic_str) = str::from_utf8(topic) {

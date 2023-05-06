@@ -39,16 +39,16 @@ impl Message {
 
     /// Serializes the middle part of this [`Message`] (no topic and sequence).
     #[inline]
-    pub fn content(self) -> Vec<u8> {
-        let mut vec = match self {
-            Self::HashBlock(blockhash, _) => blockhash.to_byte_array().to_vec(),
-            Self::HashTx(txid, _) => txid.as_byte_array().to_vec(),
+    pub fn content(&self) -> Vec<u8> {
+        let mut arr = match self {
+            Self::HashBlock(blockhash, _) => blockhash.to_byte_array(),
+            Self::HashTx(txid, _) => txid.to_byte_array(),
             Self::Block(block, _) => return serialize(&block),
             Self::Tx(tx, _) => return serialize(&tx),
-            Self::Sequence(sm, _) => return sm.into(),
+            Self::Sequence(sm, _) => return (*sm).into(),
         };
-        vec.reverse();
-        vec
+        arr.reverse();
+        arr.to_vec()
     }
 
     /// Returns the sequence of this [`Message`], a number that starts at 0 and goes up every time
@@ -65,31 +65,30 @@ impl Message {
     }
 }
 
-impl TryFrom<Vec<Vec<u8>>> for Message {
+impl TryFrom<[Vec<u8>; 3]> for Message {
     type Error = Error;
 
-    fn try_from(mut value: Vec<Vec<u8>>) -> Result<Self> {
-        if value.len() != 3 {
-            return Err(Error::InvalidMutlipartLengthError);
+    fn try_from(value: [Vec<u8>; 3]) -> Result<Self> {
+        let [topic, content, seq] = value;
+
+        if seq.len() != 4 {
+            return Err(Error::InvalidSequenceLengthError(seq.len()));
         }
-
-        let seq = value.pop().unwrap();
-        let mut content = value.pop().unwrap();
-        let topic = value.pop().unwrap();
-
-        let seq = u32::from_le_bytes(
-            seq.try_into()
-                .map_err(|_| Error::InvalidSequenceLengthError)?,
-        );
-
-        // hashblock, hashtx
-        if topic[0] == b'h' {
-            content.reverse();
-        }
+        let seq = u32::from_le_bytes(seq.try_into().unwrap());
 
         Ok(match &topic[..] {
-            b"hashblock" => Self::HashBlock(BlockHash::from_slice(&content)?, seq),
-            b"hashtx" => Self::HashTx(Txid::from_slice(&content)?, seq),
+            b"hashblock" | b"hashtx" => {
+                if content.len() != 32 {
+                    return Err(Error::Invalid256BitHashLengthError(content.len()));
+                }
+                let mut content: [u8; 32] = content.try_into().unwrap();
+                content.reverse();
+
+                match &topic[..] {
+                    b"hashblock" => Self::HashBlock(BlockHash::from_byte_array(content), seq),
+                    _ /* b"hashtx" */ => Self::HashTx(Txid::from_byte_array(content), seq),
+                }
+            }
             b"rawblock" => Self::Block(deserialize(&content)?, seq),
             b"rawtx" => Self::Tx(deserialize(&content)?, seq),
             b"sequence" => Self::Sequence(content.try_into()?, seq),
@@ -98,17 +97,31 @@ impl TryFrom<Vec<Vec<u8>>> for Message {
     }
 }
 
+impl TryFrom<Vec<Vec<u8>>> for Message {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(value: Vec<Vec<u8>>) -> Result<Self> {
+        if value.len() != 3 {
+            return Err(Error::InvalidMutlipartLengthError(value.len()));
+        }
+        let arr: [Vec<u8>; 3] = value.try_into().unwrap();
+        arr.try_into()
+    }
+}
+
 impl From<Message> for [Vec<u8>; 3] {
     fn from(msg: Message) -> Self {
-        let topic = msg.topic();
-        let sequence = msg.sequence();
-        let content = msg.content();
-
-        [topic.to_vec(), content, sequence.to_le_bytes().to_vec()]
+        [
+            msg.topic().to_vec(),
+            msg.content(),
+            msg.sequence().to_le_bytes().to_vec(),
+        ]
     }
 }
 
 impl From<Message> for Vec<Vec<u8>> {
+    #[inline]
     fn from(msg: Message) -> Self {
         let arr: [Vec<u8>; 3] = msg.into();
         arr.to_vec()

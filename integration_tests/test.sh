@@ -11,7 +11,7 @@ alias bitcoin-cli="bitcoin-cli -regtest -datadir=$datadir"
 bitcoind --version
 
 echo
-echo "datadir=$datadir"
+echo "datadir: $datadir"
 echo
 
 bitcoind -daemonwait -regtest -datadir=$datadir -conf="$PWD"/bitcoin.conf
