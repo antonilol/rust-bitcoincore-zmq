@@ -50,6 +50,8 @@ fn test_hashtx(rpc: &Client) {
 }
 
 fn test_sub_blocking(rpc: &Client) {
+    thread::sleep(Duration::from_secs(1));
+
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
