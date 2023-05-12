@@ -27,7 +27,7 @@ jobs:
         cd integration_tests
         cargo fmt --check
         cargo check
-        cargo clippy
+        cargo clippy -- -D warnings
     - name: Install Bitcoin Core
       run: |
         curl https://bitcoincore.org/bin/bitcoin-core-${{ matrix.bitcoin_core_version }}/bitcoin-${{ matrix.bitcoin_core_version }}-x86_64-linux-gnu.tar.gz -o bitcoin-core.tar.gz
