@@ -65,3 +65,18 @@ impl fmt::Display for Error {
         }
     }
 }
+
+impl std::error::Error for Error {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        Some(match self {
+            Self::BitcoinDeserializationError(e) => e,
+            Self::ZmqError(e) => e,
+            Self::InvalidMutlipartLengthError(_)
+            | Self::InvalidSequenceLengthError(_)
+            | Self::InvalidSequenceMessageLengthError(_)
+            | Self::InvalidSequenceMessageLabelError(_)
+            | Self::Invalid256BitHashLengthError(_)
+            | Self::InvalidTopicError(_) => return None,
+        })
+    }
+}
