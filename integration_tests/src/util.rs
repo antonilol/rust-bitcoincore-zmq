@@ -3,7 +3,7 @@ use bitcoincore_rpc::{Auth, Client, RpcApi};
 use core::fmt::Debug;
 use std::{env, sync::mpsc::Receiver, time::Duration};
 
-pub const RECV_TIMEOUT: Duration = Duration::from_secs(3);
+pub const RECV_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub fn setup_rpc() -> Client {
     Client::new(
