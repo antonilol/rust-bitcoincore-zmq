@@ -53,7 +53,8 @@ impl SequenceMessage {
     /// adds or removes a transaction to the mempool.
     ///
     /// Note that transactions that got removed from the mempool because they were included in a
-    /// block increment Bitcoin Core's mempool sequence, they do not produce a [`MempoolRemoval`].
+    /// block increment Bitcoin Core's mempool sequence, they do not produce a [`MempoolRemoval`]
+    /// message.
     ///
     /// [`MempoolAcceptance`]: SequenceMessage::MempoolAcceptance
     /// [`MempoolRemoval`]: SequenceMessage::MempoolRemoval
@@ -170,13 +171,13 @@ mod tests {
         let txid = genesis_block.txdata[0].txid();
 
         let connect_message = SequenceMessage::BlockConnect { blockhash };
-        let connect_bytes: Vec<u8> = connect_message.clone().into();
+        let connect_bytes: Vec<u8> = connect_message.into();
         assert_eq!(connect_message.raw_length(), connect_bytes.len());
         assert_eq!(connect_message.raw_length(), 32 + 1);
         assert_eq!(connect_message, connect_bytes.try_into().unwrap());
 
         let disconnect_message = SequenceMessage::BlockDisconnect { blockhash };
-        let disconnect_bytes: Vec<u8> = disconnect_message.clone().into();
+        let disconnect_bytes: Vec<u8> = disconnect_message.into();
         assert_eq!(disconnect_message.raw_length(), disconnect_bytes.len());
         assert_eq!(disconnect_message.raw_length(), 32 + 1);
         assert_eq!(disconnect_message, disconnect_bytes.try_into().unwrap());
@@ -185,7 +186,7 @@ mod tests {
             txid,
             mempool_sequence: 0,
         };
-        let accept_bytes: Vec<u8> = accept_message.clone().into();
+        let accept_bytes: Vec<u8> = accept_message.into();
         assert_eq!(accept_message.raw_length(), accept_bytes.len());
         assert_eq!(accept_message.raw_length(), 32 + 1 + 8);
         assert_eq!(accept_message, accept_bytes.try_into().unwrap());
@@ -194,7 +195,7 @@ mod tests {
             txid,
             mempool_sequence: 1,
         };
-        let remove_bytes: Vec<u8> = remove_message.clone().into();
+        let remove_bytes: Vec<u8> = remove_message.into();
         assert_eq!(remove_message.raw_length(), remove_bytes.len());
         assert_eq!(remove_message.raw_length(), 32 + 1 + 8);
         assert_eq!(remove_message, remove_bytes.try_into().unwrap());

@@ -32,6 +32,12 @@ impl Action {
     }
 }
 
+impl From<()> for Action {
+    fn from(_: ()) -> Self {
+        Self::Continue
+    }
+}
+
 /// Subscribes to a single ZMQ endpoint and returns a [`Receiver`]
 #[inline]
 pub fn subscribe_single(endpoint: &str) -> Result<Receiver<Result<Message>>> {
@@ -64,7 +70,7 @@ pub fn subscribe_multi(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> 
 
 /// Subscribes to a single ZMQ endpoint and blocks the thread until [`Action::Stop`] is returned by the callback
 #[inline]
-pub fn subscribe_single_blocking<F: Fn(Result<Message>) -> Action>(
+pub fn subscribe_single_blocking<F: Fn(Result<Message>) -> T, T: Into<Action>>(
     endpoint: &str,
     callback: F,
 ) -> Result<()> {
@@ -79,7 +85,7 @@ pub fn subscribe_single_blocking<F: Fn(Result<Message>) -> Action>(
 
 /// Subscribes to multiple ZMQ endpoints and blocks the thread until [`Action::Stop`] is returned by the callback
 #[inline]
-pub fn subscribe_multi_blocking<F: Fn(Result<Message>) -> Action>(
+pub fn subscribe_multi_blocking<F: Fn(Result<Message>) -> T, T: Into<Action>>(
     endpoints: &[&str],
     callback: F,
 ) -> Result<()> {
@@ -95,7 +101,7 @@ pub fn subscribe_multi_blocking<F: Fn(Result<Message>) -> Action>(
     }
 
     for msg in rx {
-        if callback(msg) == Action::Stop {
+        if callback(msg).into() == Action::Stop {
             break;
         }
     }
@@ -113,14 +119,14 @@ fn new_socket_internal(context: &Context, endpoint: &str) -> Result<Socket, zmq:
 }
 
 #[inline]
-fn subscribe_internal<F: Fn(Result<Message>) -> Action>(socket: Socket, callback: F) {
+fn subscribe_internal<F: Fn(Result<Message>) -> T, T: Into<Action>>(socket: Socket, callback: F) {
     loop {
         let msg = socket
             .recv_multipart(0)
             .map_err(|err| err.into())
             .and_then(|mp| mp.try_into());
 
-        if callback(msg) == Action::Stop {
+        if callback(msg).into() == Action::Stop {
             break;
         }
     }
