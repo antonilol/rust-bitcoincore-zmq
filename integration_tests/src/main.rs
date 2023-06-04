@@ -3,8 +3,8 @@ mod util;
 
 use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{subscribe_multi, subscribe_single_blocking, Action, Message};
-use std::{assert_eq, sync::mpsc, thread, time::Duration};
-use util::{generate, recv_timeout_2, setup_rpc, RECV_TIMEOUT};
+use std::{assert_eq, sync::mpsc, thread};
+use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
 
 fn main() {
     let rpc = setup_rpc();
@@ -50,7 +50,7 @@ fn test_hashtx(rpc: &Client) {
 }
 
 fn test_sub_blocking(rpc: &Client) {
-    thread::sleep(Duration::from_secs(1));
+    sleep(1000);
 
     let (tx, rx) = mpsc::channel();
 
@@ -73,7 +73,7 @@ fn test_sub_blocking(rpc: &Client) {
         .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
     });
 
-    thread::sleep(Duration::from_secs(1));
+    sleep(1000);
 
     let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
 

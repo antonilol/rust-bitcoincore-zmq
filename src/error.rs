@@ -2,7 +2,7 @@ use bitcoin::consensus;
 use core::fmt;
 use std::str;
 
-pub type Result<T, E = Error> = core::result::Result<T, E>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {

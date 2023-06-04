@@ -22,7 +22,8 @@ impl Action {
     }
 
     #[inline]
-    pub fn stop_if_err<T, E>(res: Result<T, E>) -> Self {
+    #[deprecated(since = "1.0.7", note = "use stop_if(result.is_err()) instead")]
+    pub fn stop_if_err<T, E>(res: core::result::Result<T, E>) -> Self {
         Self::stop_if(res.is_err())
     }
 
@@ -46,7 +47,7 @@ pub fn subscribe_single(endpoint: &str) -> Result<Receiver<Result<Message>>> {
 
     let socket = new_socket_internal(&context, endpoint)?;
 
-    thread::spawn(move || subscribe_internal(socket, |msg| Action::stop_if_err(tx.send(msg))));
+    thread::spawn(move || subscribe_internal(socket, |msg| Action::stop_if(tx.send(msg).is_err())));
 
     Ok(rx)
 }
@@ -62,7 +63,9 @@ pub fn subscribe_multi(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> 
 
         let socket = new_socket_internal(&context, endpoint)?;
 
-        thread::spawn(move || subscribe_internal(socket, |msg| Action::stop_if_err(tx.send(msg))));
+        thread::spawn(move || {
+            subscribe_internal(socket, |msg| Action::stop_if(tx.send(msg).is_err()))
+        });
     }
 
     Ok(rx)
@@ -97,7 +100,9 @@ pub fn subscribe_multi_blocking<F: Fn(Result<Message>) -> T, T: Into<Action>>(
 
         let socket = new_socket_internal(&context, endpoint)?;
 
-        thread::spawn(move || subscribe_internal(socket, |msg| Action::stop_if_err(tx.send(msg))));
+        thread::spawn(move || {
+            subscribe_internal(socket, |msg| Action::stop_if(tx.send(msg).is_err()))
+        });
     }
 
     for msg in rx {
@@ -110,7 +115,7 @@ pub fn subscribe_multi_blocking<F: Fn(Result<Message>) -> T, T: Into<Action>>(
 }
 
 #[inline]
-fn new_socket_internal(context: &Context, endpoint: &str) -> Result<Socket, zmq::Error> {
+fn new_socket_internal(context: &Context, endpoint: &str) -> Result<Socket> {
     let socket = context.socket(zmq::SUB)?;
     socket.connect(endpoint)?;
     socket.set_subscribe(b"")?;

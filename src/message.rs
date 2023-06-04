@@ -40,15 +40,20 @@ impl Message {
     /// Serializes the middle part of this [`Message`] (no topic and sequence).
     #[inline]
     pub fn content(&self) -> Vec<u8> {
-        let mut arr = match self {
-            Self::HashBlock(blockhash, _) => blockhash.to_byte_array(),
-            Self::HashTx(txid, _) => txid.to_byte_array(),
-            Self::Block(block, _) => return serialize(&block),
-            Self::Tx(tx, _) => return serialize(&tx),
-            Self::Sequence(sm, _) => return (*sm).into(),
-        };
-        arr.reverse();
-        arr.to_vec()
+        match self {
+            Self::HashBlock(_, _) | Self::HashTx(_, _) => {
+                let mut arr = match self {
+                    Self::HashBlock(blockhash, _) => blockhash.to_byte_array(),
+                    Self::HashTx(txid, _) => txid.to_byte_array(),
+                    _ => unreachable!(),
+                };
+                arr.reverse();
+                arr.to_vec()
+            }
+            Self::Block(block, _) => serialize(&block),
+            Self::Tx(tx, _) => serialize(&tx),
+            Self::Sequence(sm, _) => sm.as_bytes(),
+        }
     }
 
     /// Returns the sequence of this [`Message`], a number that starts at 0 and goes up every time
@@ -63,20 +68,27 @@ impl Message {
             | Self::Sequence(_, seq) => *seq,
         }
     }
-}
 
-impl TryFrom<[Vec<u8>; 3]> for Message {
-    type Error = Error;
+    pub fn from_multipart<T: AsRef<[u8]>>(mp: &[T]) -> Result<Self> {
+        if mp.len() != 3 {
+            return Err(Error::InvalidMutlipartLengthError(mp.len()));
+        }
+        Self::from_fixed_size_multipart(mp.try_into().unwrap())
+    }
 
-    fn try_from(value: [Vec<u8>; 3]) -> Result<Self> {
-        let [topic, content, seq] = value;
+    pub fn from_fixed_size_multipart<T: AsRef<[u8]>>(mp: &[T; 3]) -> Result<Self> {
+        let [topic, content, seq] = mp;
+
+        let topic = topic.as_ref();
+        let content = content.as_ref();
+        let seq = seq.as_ref();
 
         if seq.len() != 4 {
             return Err(Error::InvalidSequenceLengthError(seq.len()));
         }
         let seq = u32::from_le_bytes(seq.try_into().unwrap());
 
-        Ok(match &topic[..] {
+        Ok(match topic {
             b"hashblock" | b"hashtx" => {
                 if content.len() != 32 {
                     return Err(Error::Invalid256BitHashLengthError(content.len()));
@@ -84,29 +96,42 @@ impl TryFrom<[Vec<u8>; 3]> for Message {
                 let mut content: [u8; 32] = content.try_into().unwrap();
                 content.reverse();
 
-                match &topic[..] {
+                match topic {
                     b"hashblock" => Self::HashBlock(BlockHash::from_byte_array(content), seq),
                     _ /* b"hashtx" */ => Self::HashTx(Txid::from_byte_array(content), seq),
                 }
             }
-            b"rawblock" => Self::Block(deserialize(&content)?, seq),
-            b"rawtx" => Self::Tx(deserialize(&content)?, seq),
-            b"sequence" => Self::Sequence(content.try_into()?, seq),
-            _ => return Err(Error::InvalidTopicError(topic)),
+            b"rawblock" => Self::Block(deserialize(content)?, seq),
+            b"rawtx" => Self::Tx(deserialize(content)?, seq),
+            b"sequence" => Self::Sequence(SequenceMessage::from_byte_slice(content)?, seq),
+            _ => return Err(Error::InvalidTopicError(topic.to_vec())),
         })
     }
 }
 
-impl TryFrom<Vec<Vec<u8>>> for Message {
+impl<T: AsRef<[u8]>> TryFrom<[T; 3]> for Message {
+    type Error = Error;
+
+    fn try_from(value: [T; 3]) -> Result<Self> {
+        Self::from_fixed_size_multipart(&value)
+    }
+}
+
+impl<T: AsRef<[u8]>> TryFrom<Vec<T>> for Message {
     type Error = Error;
 
     #[inline]
-    fn try_from(value: Vec<Vec<u8>>) -> Result<Self> {
-        if value.len() != 3 {
-            return Err(Error::InvalidMutlipartLengthError(value.len()));
-        }
-        let arr: [Vec<u8>; 3] = value.try_into().unwrap();
-        arr.try_into()
+    fn try_from(value: Vec<T>) -> Result<Self> {
+        Self::from_multipart(&value)
+    }
+}
+
+impl<T: AsRef<[u8]>> TryFrom<&[T]> for Message {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(value: &[T]) -> Result<Self> {
+        Self::from_multipart(value)
     }
 }
 
