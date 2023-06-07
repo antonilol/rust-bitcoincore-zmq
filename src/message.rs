@@ -70,10 +70,10 @@ impl Message {
     }
 
     pub fn from_multipart<T: AsRef<[u8]>>(mp: &[T]) -> Result<Self> {
-        if mp.len() != 3 {
-            return Err(Error::InvalidMutlipartLengthError(mp.len()));
-        }
-        Self::from_fixed_size_multipart(mp.try_into().unwrap())
+        Self::from_fixed_size_multipart(
+            mp.try_into()
+                .map_err(|_| Error::InvalidMutlipartLengthError(mp.len()))?,
+        )
     }
 
     pub fn from_fixed_size_multipart<T: AsRef<[u8]>>(mp: &[T; 3]) -> Result<Self> {
@@ -83,17 +83,16 @@ impl Message {
         let content = content.as_ref();
         let seq = seq.as_ref();
 
-        if seq.len() != 4 {
-            return Err(Error::InvalidSequenceLengthError(seq.len()));
-        }
-        let seq = u32::from_le_bytes(seq.try_into().unwrap());
+        let seq = u32::from_le_bytes(
+            seq.try_into()
+                .map_err(|_| Error::InvalidSequenceLengthError(seq.len()))?,
+        );
 
         Ok(match topic {
             b"hashblock" | b"hashtx" => {
-                if content.len() != 32 {
-                    return Err(Error::Invalid256BitHashLengthError(content.len()));
-                }
-                let mut content: [u8; 32] = content.try_into().unwrap();
+                let mut content: [u8; 32] = content
+                    .try_into()
+                    .map_err(|_| Error::Invalid256BitHashLengthError(content.len()))?;
                 content.reverse();
 
                 match topic {

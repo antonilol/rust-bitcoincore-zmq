@@ -1,6 +1,5 @@
 use bitcoin::consensus;
 use core::fmt;
-use std::str;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -51,12 +50,11 @@ impl fmt::Display for Error {
                 write!(f, "invalid hash length: {len} (expected 32)")
             }
             Error::InvalidTopicError(topic) => {
-                write!(f, "invalid message topic ")?;
-                if let Ok(topic_str) = str::from_utf8(topic) {
-                    write!(f, "'{topic_str}'")
-                } else {
-                    write!(f, "{topic:#04x?} (not utf-8)")
-                }
+                write!(
+                    f,
+                    "invalid message topic '{}'",
+                    String::from_utf8_lossy(topic)
+                )
             }
             Error::BitcoinDeserializationError(e) => {
                 write!(f, "bitcoin consensus deserialization error: {e}")
