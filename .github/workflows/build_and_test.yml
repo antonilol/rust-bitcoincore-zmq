@@ -17,7 +17,6 @@ jobs:
     - name: Check
       run: |
         cargo fmt --check
-        cargo check
         cargo clippy -- -D warnings
     - name: Build
       run: cargo build --verbose

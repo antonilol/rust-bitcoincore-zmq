@@ -26,7 +26,6 @@ jobs:
       run: |
         cd integration_tests
         cargo fmt --check
-        cargo check
         cargo clippy -- -D warnings
     - name: Install Bitcoin Core
       run: |
