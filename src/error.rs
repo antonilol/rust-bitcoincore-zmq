@@ -18,18 +18,21 @@ pub enum Error {
 }
 
 impl From<zmq::Error> for Error {
+    #[inline]
     fn from(value: zmq::Error) -> Self {
         Self::Zmq(value)
     }
 }
 
 impl From<consensus::encode::Error> for Error {
+    #[inline]
     fn from(value: consensus::encode::Error) -> Self {
         Self::BitcoinDeserialization(value)
     }
 }
 
 impl fmt::Display for Error {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidMutlipartLength(len) => {
@@ -79,6 +82,7 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {
+    #[inline]
     fn cause(&self) -> Option<&dyn std::error::Error> {
         Some(match self {
             Self::BitcoinDeserialization(e) => e,

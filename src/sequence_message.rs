@@ -12,6 +12,7 @@ pub enum SequenceMessage {
 
 impl SequenceMessage {
     /// Returns the length of this [`SequenceMessage`] when serialized.
+    #[inline]
     pub fn raw_length(&self) -> usize {
         match self {
             Self::BlockConnect { .. } | Self::BlockDisconnect { .. } => 33,
@@ -20,11 +21,13 @@ impl SequenceMessage {
     }
 
     /// Returns the label of this [`SequenceMessage`] as a [`char`].
+    #[inline]
     pub fn label_char(&self) -> char {
         self.label() as char
     }
 
     /// Returns the label of this [`SequenceMessage`] as a [`u8`].
+    #[inline]
     pub fn label(&self) -> u8 {
         match self {
             Self::BlockConnect { .. } => b'C',
@@ -35,6 +38,7 @@ impl SequenceMessage {
     }
 
     /// Returns the contained hash (block hash or txid) of this [`SequenceMessage`].
+    #[inline]
     pub fn inner_hash_as_bytes(&self) -> [u8; 32] {
         let mut arr = match self {
             Self::BlockConnect { blockhash } | Self::BlockDisconnect { blockhash } => {
@@ -58,6 +62,7 @@ impl SequenceMessage {
     ///
     /// [`MempoolAcceptance`]: SequenceMessage::MempoolAcceptance
     /// [`MempoolRemoval`]: SequenceMessage::MempoolRemoval
+    #[inline]
     pub fn mempool_sequence(&self) -> Option<u64> {
         match self {
             Self::BlockConnect { .. } | Self::BlockDisconnect { .. } => None,
@@ -71,6 +76,7 @@ impl SequenceMessage {
     }
 
     /// Deserializes bytes to a [`SequenceMessage`]
+    #[inline]
     pub fn from_byte_slice<T: AsRef<[u8]>>(bytes: T) -> Result<Self> {
         let bytes = bytes.as_ref();
 
@@ -113,7 +119,8 @@ impl SequenceMessage {
     }
 
     /// Serializes a [`SequenceMessage`] to bytes
-    pub fn as_bytes(&self) -> Vec<u8> {
+    #[inline]
+    pub fn serialize_to_vec(&self) -> Vec<u8> {
         let mut ret = Vec::with_capacity(self.raw_length());
 
         // blockhash or txid
@@ -134,6 +141,7 @@ impl SequenceMessage {
 impl TryFrom<Vec<u8>> for SequenceMessage {
     type Error = Error;
 
+    #[inline]
     fn try_from(value: Vec<u8>) -> Result<Self> {
         Self::from_byte_slice(value)
     }
@@ -142,18 +150,21 @@ impl TryFrom<Vec<u8>> for SequenceMessage {
 impl TryFrom<&[u8]> for SequenceMessage {
     type Error = Error;
 
+    #[inline]
     fn try_from(value: &[u8]) -> Result<Self> {
         Self::from_byte_slice(value)
     }
 }
 
 impl From<SequenceMessage> for Vec<u8> {
+    #[inline]
     fn from(sm: SequenceMessage) -> Self {
-        sm.as_bytes()
+        sm.serialize_to_vec()
     }
 }
 
 impl fmt::Display for SequenceMessage {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SequenceMessage::BlockConnect { blockhash } => write!(f, "BlockConnect({blockhash})"),

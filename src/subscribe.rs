@@ -32,6 +32,7 @@ impl Action {
 }
 
 impl From<()> for Action {
+    #[inline]
     fn from(_: ()) -> Self {
         Self::Continue
     }
@@ -121,6 +122,7 @@ fn new_socket_internal(context: &Context, endpoint: &str) -> Result<Socket> {
     Ok(socket)
 }
 
+#[inline]
 fn recv_internal(socket: &Socket, data: &mut [u8; DATA_MAX_LEN]) -> Result<Message> {
     let mut topic = [0u8; TOPIC_MAX_LEN];
     let mut sequence = [0u8; SEQUENCE_LEN];

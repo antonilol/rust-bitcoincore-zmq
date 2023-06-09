@@ -48,7 +48,7 @@ impl Message {
 
     /// Serializes the middle part of this [`Message`] (no topic and sequence).
     #[inline]
-    pub fn content(&self) -> Vec<u8> {
+    pub fn serialize_data_to_vec(&self) -> Vec<u8> {
         match self {
             Self::HashBlock(_, _) | Self::HashTx(_, _) => {
                 let mut arr = match self {
@@ -61,12 +61,22 @@ impl Message {
             }
             Self::Block(block, _) => serialize(&block),
             Self::Tx(tx, _) => serialize(&tx),
-            Self::Sequence(sm, _) => sm.as_bytes(),
+            Self::Sequence(sm, _) => sm.serialize_to_vec(),
         }
     }
 
+    /// Serializes this [`Message`] to 3 [`Vec<u8>`]s.
+    #[inline]
+    pub fn serialize_to_vecs(&self) -> [Vec<u8>; 3] {
+        [
+            self.topic().to_vec(),
+            self.serialize_data_to_vec(),
+            self.sequence().to_le_bytes().to_vec(),
+        ]
+    }
+
     /// Returns the sequence of this [`Message`], a number that starts at 0 and goes up every time
-    /// Bitcoin Core sends a ZMQ message per publisher
+    /// Bitcoin Core sends a ZMQ message per publisher.
     #[inline]
     pub fn sequence(&self) -> u32 {
         match self {
@@ -78,6 +88,8 @@ impl Message {
         }
     }
 
+    /// Attempts to deserialize a multipart (multiple byte slices) to a [`Message`].
+    #[inline]
     pub fn from_multipart<T: AsRef<[u8]>>(mp: &[T]) -> Result<Self> {
         Self::from_fixed_size_multipart(
             mp.try_into()
@@ -85,6 +97,7 @@ impl Message {
         )
     }
 
+    #[inline]
     pub fn from_fixed_size_multipart<T: AsRef<[u8]>>(mp: &[T; 3]) -> Result<Self> {
         let [topic, data, seq] = mp;
 
@@ -99,6 +112,7 @@ impl Message {
         Self::from_parts(topic, data, seq)
     }
 
+    #[inline]
     pub fn from_parts(topic: &[u8], data: &[u8], seq: [u8; 4]) -> Result<Self> {
         let seq = u32::from_le_bytes(seq);
 
@@ -140,30 +154,28 @@ impl<T: AsRef<[u8]>> TryFrom<&[T]> for Message {
 impl<T: AsRef<[u8]>> TryFrom<[T; 3]> for Message {
     type Error = Error;
 
+    #[inline]
     fn try_from(value: [T; 3]) -> Result<Self> {
         Self::from_fixed_size_multipart(&value)
     }
 }
 
 impl From<Message> for [Vec<u8>; 3] {
+    #[inline]
     fn from(msg: Message) -> Self {
-        [
-            msg.topic().to_vec(),
-            msg.content(),
-            msg.sequence().to_le_bytes().to_vec(),
-        ]
+        msg.serialize_to_vecs()
     }
 }
 
 impl From<Message> for Vec<Vec<u8>> {
     #[inline]
     fn from(msg: Message) -> Self {
-        let arr: [Vec<u8>; 3] = msg.into();
-        arr.to_vec()
+        msg.serialize_to_vecs().to_vec()
     }
 }
 
 impl fmt::Display for Message {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::HashBlock(blockhash, seq) => write!(f, "HashBlock({blockhash}, sequence={seq})"),
