@@ -127,25 +127,25 @@ fn recv_internal(socket: &Socket, data: &mut [u8; DATA_MAX_LEN]) -> Result<Messa
 
     let topic_len = socket.recv_into(&mut topic, 0)?;
     if topic_len > TOPIC_MAX_LEN {
-        return Err(Error::InvalidTopicError(topic_len, topic));
+        return Err(Error::InvalidTopic(topic_len, topic));
     }
 
     if !socket.get_rcvmore()? {
-        return Err(Error::InvalidMutlipartLengthError(1));
+        return Err(Error::InvalidMutlipartLength(1));
     }
 
     let data_len = socket.recv_into(data, 0)?;
     if data_len > DATA_MAX_LEN {
-        return Err(Error::InvalidDataLengthError(data_len));
+        return Err(Error::InvalidDataLength(data_len));
     }
 
     if !socket.get_rcvmore()? {
-        return Err(Error::InvalidMutlipartLengthError(2));
+        return Err(Error::InvalidMutlipartLength(2));
     }
 
     let sequence_len = socket.recv_into(&mut sequence, 0)?;
     if sequence_len != SEQUENCE_LEN {
-        return Err(Error::InvalidSequenceLengthError(sequence_len));
+        return Err(Error::InvalidSequenceLength(sequence_len));
     }
 
     if !socket.get_rcvmore()? {
@@ -160,7 +160,7 @@ fn recv_internal(socket: &Socket, data: &mut [u8; DATA_MAX_LEN]) -> Result<Messa
         len += 1;
 
         if !socket.get_rcvmore()? {
-            return Err(Error::InvalidMutlipartLengthError(len));
+            return Err(Error::InvalidMutlipartLength(len));
         }
     }
 }

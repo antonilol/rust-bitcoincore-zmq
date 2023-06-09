@@ -81,7 +81,7 @@ impl Message {
     pub fn from_multipart<T: AsRef<[u8]>>(mp: &[T]) -> Result<Self> {
         Self::from_fixed_size_multipart(
             mp.try_into()
-                .map_err(|_| Error::InvalidMutlipartLengthError(mp.len()))?,
+                .map_err(|_| Error::InvalidMutlipartLength(mp.len()))?,
         )
     }
 
@@ -94,7 +94,7 @@ impl Message {
 
         let seq = seq
             .try_into()
-            .map_err(|_| Error::InvalidSequenceLengthError(seq.len()))?;
+            .map_err(|_| Error::InvalidSequenceLength(seq.len()))?;
 
         Self::from_parts(topic, data, seq)
     }
@@ -106,7 +106,7 @@ impl Message {
             b"hashblock" | b"hashtx" => {
                 let mut data: [u8; 32] = data
                     .try_into()
-                    .map_err(|_| Error::Invalid256BitHashLengthError(data.len()))?;
+                    .map_err(|_| Error::Invalid256BitHashLength(data.len()))?;
                 data.reverse();
 
                 match topic {
@@ -122,7 +122,7 @@ impl Message {
 
                 buf[0..topic.len()].copy_from_slice(topic);
 
-                return Err(Error::InvalidTopicError(topic.len(), buf));
+                return Err(Error::InvalidTopic(topic.len(), buf));
             }
         })
     }

@@ -6,36 +6,36 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    InvalidMutlipartLengthError(usize),
-    InvalidTopicError(usize, [u8; TOPIC_MAX_LEN]),
-    InvalidDataLengthError(usize),
-    InvalidSequenceLengthError(usize),
-    InvalidSequenceMessageLengthError(usize),
-    InvalidSequenceMessageLabelError(u8),
-    Invalid256BitHashLengthError(usize),
-    BitcoinDeserializationError(consensus::encode::Error),
-    ZmqError(zmq::Error),
+    InvalidMutlipartLength(usize),
+    InvalidTopic(usize, [u8; TOPIC_MAX_LEN]),
+    InvalidDataLength(usize),
+    InvalidSequenceLength(usize),
+    InvalidSequenceMessageLength(usize),
+    InvalidSequenceMessageLabel(u8),
+    Invalid256BitHashLength(usize),
+    BitcoinDeserialization(consensus::encode::Error),
+    Zmq(zmq::Error),
 }
 
 impl From<zmq::Error> for Error {
     fn from(value: zmq::Error) -> Self {
-        Self::ZmqError(value)
+        Self::Zmq(value)
     }
 }
 
 impl From<consensus::encode::Error> for Error {
     fn from(value: consensus::encode::Error) -> Self {
-        Self::BitcoinDeserializationError(value)
+        Self::BitcoinDeserialization(value)
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::InvalidMutlipartLengthError(len) => {
+            Self::InvalidMutlipartLength(len) => {
                 write!(f, "invalid multipart message length: {len} (expected 3)")
             }
-            Error::InvalidTopicError(len, topic) => {
+            Self::InvalidTopic(len, topic) => {
                 write!(
                     f,
                     "invalid message topic '{}'{}",
@@ -47,33 +47,33 @@ impl fmt::Display for Error {
                     }
                 )
             }
-            Error::InvalidDataLengthError(len) => {
+            Self::InvalidDataLength(len) => {
                 write!(f, "data too long ({len} > {DATA_MAX_LEN})")
             }
-            Error::InvalidSequenceLengthError(len) => {
+            Self::InvalidSequenceLength(len) => {
                 write!(
                     f,
                     "invalid sequence length: {len} (expected {SEQUENCE_LEN})"
                 )
             }
-            Error::InvalidSequenceMessageLengthError(len) => {
+            Self::InvalidSequenceMessageLength(len) => {
                 write!(f, "invalid message length {len} of message type 'sequence'")
             }
-            Error::InvalidSequenceMessageLabelError(label) => {
+            Self::InvalidSequenceMessageLabel(label) => {
                 write!(
                     f,
                     "invalid label '{}' (0x{:02x}) of message type 'sequence'",
                     *label as char, label
                 )
             }
-            Error::Invalid256BitHashLengthError(len) => {
+            Self::Invalid256BitHashLength(len) => {
                 write!(f, "invalid hash length: {len} (expected 32)")
             }
 
-            Error::BitcoinDeserializationError(e) => {
+            Self::BitcoinDeserialization(e) => {
                 write!(f, "bitcoin consensus deserialization error: {e}")
             }
-            Error::ZmqError(e) => write!(f, "ZMQ Error: {e}"),
+            Self::Zmq(e) => write!(f, "ZMQ Error: {e}"),
         }
     }
 }
@@ -81,15 +81,15 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {
     fn cause(&self) -> Option<&dyn std::error::Error> {
         Some(match self {
-            Self::BitcoinDeserializationError(e) => e,
-            Self::ZmqError(e) => e,
-            Self::InvalidMutlipartLengthError(_)
-            | Self::InvalidTopicError(_, _)
-            | Self::InvalidDataLengthError(_)
-            | Self::InvalidSequenceLengthError(_)
-            | Self::InvalidSequenceMessageLengthError(_)
-            | Self::InvalidSequenceMessageLabelError(_)
-            | Self::Invalid256BitHashLengthError(_) => return None,
+            Self::BitcoinDeserialization(e) => e,
+            Self::Zmq(e) => e,
+            Self::InvalidMutlipartLength(_)
+            | Self::InvalidTopic(_, _)
+            | Self::InvalidDataLength(_)
+            | Self::InvalidSequenceLength(_)
+            | Self::InvalidSequenceMessageLength(_)
+            | Self::InvalidSequenceMessageLabel(_)
+            | Self::Invalid256BitHashLength(_) => return None,
         })
     }
 }

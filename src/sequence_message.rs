@@ -75,7 +75,7 @@ impl SequenceMessage {
         let bytes = bytes.as_ref();
 
         if bytes.len() < 33 {
-            return Err(Error::InvalidSequenceMessageLengthError(bytes.len()));
+            return Err(Error::InvalidSequenceMessageLength(bytes.len()));
         }
 
         let mut hash: [u8; 32] = bytes[0..32].try_into().unwrap();
@@ -85,7 +85,7 @@ impl SequenceMessage {
         Ok(match label {
             b'C' | b'D' => {
                 if bytes.len() != 33 {
-                    return Err(Error::InvalidSequenceMessageLengthError(bytes.len()));
+                    return Err(Error::InvalidSequenceMessageLength(bytes.len()));
                 }
 
                 let blockhash = BlockHash::from_byte_array(hash);
@@ -97,7 +97,7 @@ impl SequenceMessage {
             }
             b'A' | b'R' => {
                 if bytes.len() != 41 {
-                    return Err(Error::InvalidSequenceMessageLengthError(bytes.len()));
+                    return Err(Error::InvalidSequenceMessageLength(bytes.len()));
                 }
 
                 let txid = Txid::from_byte_array(hash);
@@ -108,7 +108,7 @@ impl SequenceMessage {
                     _ /* b'R' */ => Self::MempoolRemoval { txid, mempool_sequence },
                 }
             }
-            _ => return Err(Error::InvalidSequenceMessageLabelError(label)),
+            _ => return Err(Error::InvalidSequenceMessageLabel(label)),
         })
     }
 
