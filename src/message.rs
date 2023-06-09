@@ -4,10 +4,15 @@ use crate::{
 };
 use bitcoin::{
     consensus::{deserialize, serialize},
+    constants::MAX_BLOCK_WEIGHT,
     hashes::Hash,
     Block, BlockHash, Transaction, Txid,
 };
 use core::fmt;
+
+pub const TOPIC_MAX_LEN: usize = 9;
+pub const DATA_MAX_LEN: usize = MAX_BLOCK_WEIGHT as usize;
+pub const SEQUENCE_LEN: usize = 4;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Message {
@@ -28,13 +33,17 @@ impl Message {
     /// Returns the topic of this [`Message`] as a string slice.
     #[inline]
     pub fn topic_str(&self) -> &'static str {
-        match self {
+        let topic = match self {
             Self::HashBlock(..) => "hashblock",
             Self::HashTx(..) => "hashtx",
             Self::Block(..) => "block",
             Self::Tx(..) => "tx",
             Self::Sequence(..) => "sequence",
-        }
+        };
+
+        debug_assert!(topic.len() <= TOPIC_MAX_LEN);
+
+        topic
     }
 
     /// Serializes the middle part of this [`Message`] (no topic and sequence).
@@ -77,51 +86,45 @@ impl Message {
     }
 
     pub fn from_fixed_size_multipart<T: AsRef<[u8]>>(mp: &[T; 3]) -> Result<Self> {
-        let [topic, content, seq] = mp;
+        let [topic, data, seq] = mp;
 
         let topic = topic.as_ref();
-        let content = content.as_ref();
+        let data = data.as_ref();
         let seq = seq.as_ref();
 
-        let seq = u32::from_le_bytes(
-            seq.try_into()
-                .map_err(|_| Error::InvalidSequenceLengthError(seq.len()))?,
-        );
+        let seq = seq
+            .try_into()
+            .map_err(|_| Error::InvalidSequenceLengthError(seq.len()))?;
+
+        Self::from_parts(topic, data, seq)
+    }
+
+    pub fn from_parts(topic: &[u8], data: &[u8], seq: [u8; 4]) -> Result<Self> {
+        let seq = u32::from_le_bytes(seq);
 
         Ok(match topic {
             b"hashblock" | b"hashtx" => {
-                let mut content: [u8; 32] = content
+                let mut data: [u8; 32] = data
                     .try_into()
-                    .map_err(|_| Error::Invalid256BitHashLengthError(content.len()))?;
-                content.reverse();
+                    .map_err(|_| Error::Invalid256BitHashLengthError(data.len()))?;
+                data.reverse();
 
                 match topic {
-                    b"hashblock" => Self::HashBlock(BlockHash::from_byte_array(content), seq),
-                    _ /* b"hashtx" */ => Self::HashTx(Txid::from_byte_array(content), seq),
+                    b"hashblock" => Self::HashBlock(BlockHash::from_byte_array(data), seq),
+                    _ /* b"hashtx" */ => Self::HashTx(Txid::from_byte_array(data), seq),
                 }
             }
-            b"rawblock" => Self::Block(deserialize(content)?, seq),
-            b"rawtx" => Self::Tx(deserialize(content)?, seq),
-            b"sequence" => Self::Sequence(SequenceMessage::from_byte_slice(content)?, seq),
-            _ => return Err(Error::InvalidTopicError(topic.to_vec())),
+            b"rawblock" => Self::Block(deserialize(data)?, seq),
+            b"rawtx" => Self::Tx(deserialize(data)?, seq),
+            b"sequence" => Self::Sequence(SequenceMessage::from_byte_slice(data)?, seq),
+            _ => {
+                let mut buf = [0; TOPIC_MAX_LEN];
+
+                buf[0..topic.len()].copy_from_slice(topic);
+
+                return Err(Error::InvalidTopicError(topic.len(), buf));
+            }
         })
-    }
-}
-
-impl<T: AsRef<[u8]>> TryFrom<[T; 3]> for Message {
-    type Error = Error;
-
-    fn try_from(value: [T; 3]) -> Result<Self> {
-        Self::from_fixed_size_multipart(&value)
-    }
-}
-
-impl<T: AsRef<[u8]>> TryFrom<Vec<T>> for Message {
-    type Error = Error;
-
-    #[inline]
-    fn try_from(value: Vec<T>) -> Result<Self> {
-        Self::from_multipart(&value)
     }
 }
 
@@ -131,6 +134,14 @@ impl<T: AsRef<[u8]>> TryFrom<&[T]> for Message {
     #[inline]
     fn try_from(value: &[T]) -> Result<Self> {
         Self::from_multipart(value)
+    }
+}
+
+impl<T: AsRef<[u8]>> TryFrom<[T; 3]> for Message {
+    type Error = Error;
+
+    fn try_from(value: [T; 3]) -> Result<Self> {
+        Self::from_fixed_size_multipart(&value)
     }
 }
 

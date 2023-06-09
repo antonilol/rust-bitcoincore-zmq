@@ -5,7 +5,7 @@ mod subscribe;
 
 pub use crate::{
     error::Error,
-    message::Message,
+    message::{Message, DATA_MAX_LEN, SEQUENCE_LEN, TOPIC_MAX_LEN},
     sequence_message::SequenceMessage,
     subscribe::{
         subscribe_multi, subscribe_multi_blocking, subscribe_single, subscribe_single_blocking,

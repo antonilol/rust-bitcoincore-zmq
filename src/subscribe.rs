@@ -1,4 +1,8 @@
-use crate::{error::Result, message::Message};
+use crate::{
+    error::Result,
+    message::{Message, SEQUENCE_LEN, TOPIC_MAX_LEN},
+    Error, DATA_MAX_LEN,
+};
 use std::{
     sync::mpsc::{channel, Receiver},
     thread,
@@ -117,13 +121,57 @@ fn new_socket_internal(context: &Context, endpoint: &str) -> Result<Socket> {
     Ok(socket)
 }
 
+fn recv_internal(socket: &Socket, data: &mut [u8; DATA_MAX_LEN]) -> Result<Message> {
+    let mut topic = [0u8; TOPIC_MAX_LEN];
+    let mut sequence = [0u8; SEQUENCE_LEN];
+
+    let topic_len = socket.recv_into(&mut topic, 0)?;
+    if topic_len > TOPIC_MAX_LEN {
+        return Err(Error::InvalidTopicError(topic_len, topic));
+    }
+
+    if !socket.get_rcvmore()? {
+        return Err(Error::InvalidMutlipartLengthError(1));
+    }
+
+    let data_len = socket.recv_into(data, 0)?;
+    if data_len > DATA_MAX_LEN {
+        return Err(Error::InvalidDataLengthError(data_len));
+    }
+
+    if !socket.get_rcvmore()? {
+        return Err(Error::InvalidMutlipartLengthError(2));
+    }
+
+    let sequence_len = socket.recv_into(&mut sequence, 0)?;
+    if sequence_len != SEQUENCE_LEN {
+        return Err(Error::InvalidSequenceLengthError(sequence_len));
+    }
+
+    if !socket.get_rcvmore()? {
+        return Message::from_parts(&topic[0..topic_len], &data[0..data_len], sequence);
+    }
+
+    let mut len = 3;
+
+    loop {
+        socket.recv_into(&mut [], 0)?;
+
+        len += 1;
+
+        if !socket.get_rcvmore()? {
+            return Err(Error::InvalidMutlipartLengthError(len));
+        }
+    }
+}
+
 #[inline]
 fn subscribe_internal<F: Fn(Result<Message>) -> T, T: Into<Action>>(socket: Socket, callback: F) {
+    let mut data: Box<[u8; DATA_MAX_LEN]> =
+        vec![0; DATA_MAX_LEN].into_boxed_slice().try_into().unwrap();
+
     loop {
-        let msg = socket
-            .recv_multipart(0)
-            .map_err(|err| err.into())
-            .and_then(|mp| mp.try_into());
+        let msg = recv_internal(&socket, &mut data);
 
         if callback(msg).into() == Action::Stop {
             break;

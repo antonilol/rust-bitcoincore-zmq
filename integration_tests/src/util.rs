@@ -15,8 +15,8 @@ pub fn setup_rpc() -> Client {
 
 fn get_cookie_path() -> String {
     env::var("BITCOIN_CORE_COOKIE_PATH").expect(
-        "env var BITCOIN_CORE_COOKIE_PATH probably not set,\
-         make sure to run this with the 'test.sh' script to set Bitcoin Core up correctly",
+        "env var BITCOIN_CORE_COOKIE_PATH probably not set, \
+        make sure to run this with the 'test.sh' script to set Bitcoin Core up correctly",
     )
 }
 
