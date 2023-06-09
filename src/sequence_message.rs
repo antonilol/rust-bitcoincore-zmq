@@ -48,14 +48,6 @@ impl SequenceMessage {
         arr
     }
 
-    #[deprecated(
-        since = "1.0.7",
-        note = "this function was renamed to `inner_hash_as_bytes` and does not consume self anymore"
-    )]
-    pub fn into_inner(self) -> [u8; 32] {
-        self.inner_hash_as_bytes()
-    }
-
     /// Returns the mempool sequence of this [`SequenceMessage`] if it is [`MempoolAcceptance`] or
     /// [`MempoolRemoval`]. This is a number that starts at 1 and goes up every time Bitcoin Core
     /// adds or removes a transaction to the mempool.

@@ -22,12 +22,6 @@ impl Action {
     }
 
     #[inline]
-    #[deprecated(since = "1.0.7", note = "use stop_if(result.is_err()) instead")]
-    pub fn stop_if_err<T, E>(res: core::result::Result<T, E>) -> Self {
-        Self::stop_if(res.is_err())
-    }
-
-    #[inline]
     pub fn continue_if(cond: bool) -> Self {
         Self::stop_if(!cond)
     }
@@ -135,13 +129,4 @@ fn subscribe_internal<F: Fn(Result<Message>) -> T, T: Into<Action>>(socket: Sock
             break;
         }
     }
-}
-
-#[inline]
-#[deprecated(
-    since = "1.0.5",
-    note = "this function was renamed to `subscribe_multi`"
-)]
-pub fn sub_zmq(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> {
-    subscribe_multi(endpoints)
 }
