@@ -207,7 +207,7 @@ mod tests {
         txid_bytes.reverse();
 
         let connect_message = SequenceMessage::BlockConnect { blockhash };
-        let connect_bytes = connect_message.as_bytes();
+        let connect_bytes = connect_message.serialize_to_vec();
         assert_eq!(connect_message.raw_length(), connect_bytes.len());
         assert_eq!(connect_message.raw_length(), 32 + 1);
         assert_eq!(connect_message, connect_bytes.try_into().unwrap());
@@ -217,7 +217,7 @@ mod tests {
         assert_eq!(connect_message.mempool_sequence(), None);
 
         let disconnect_message = SequenceMessage::BlockDisconnect { blockhash };
-        let disconnect_bytes = disconnect_message.as_bytes();
+        let disconnect_bytes = disconnect_message.serialize_to_vec();
         assert_eq!(disconnect_message.raw_length(), disconnect_bytes.len());
         assert_eq!(disconnect_message.raw_length(), 32 + 1);
         assert_eq!(disconnect_message, disconnect_bytes.try_into().unwrap());
@@ -230,7 +230,7 @@ mod tests {
             txid,
             mempool_sequence: 1,
         };
-        let accept_bytes = accept_message.as_bytes();
+        let accept_bytes = accept_message.serialize_to_vec();
         assert_eq!(accept_message.raw_length(), accept_bytes.len());
         assert_eq!(accept_message.raw_length(), 32 + 1 + 8);
         assert_eq!(accept_message, accept_bytes.try_into().unwrap());
@@ -243,7 +243,7 @@ mod tests {
             txid,
             mempool_sequence: 2,
         };
-        let remove_bytes = remove_message.as_bytes();
+        let remove_bytes = remove_message.serialize_to_vec();
         assert_eq!(remove_message.raw_length(), remove_bytes.len());
         assert_eq!(remove_message.raw_length(), 32 + 1 + 8);
         assert_eq!(remove_message, remove_bytes.try_into().unwrap());
