@@ -83,7 +83,7 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {
     #[inline]
-    fn cause(&self) -> Option<&dyn std::error::Error> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(match self {
             Self::BitcoinDeserialization(e) => e,
             Self::Zmq(e) => e,
