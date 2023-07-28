@@ -29,3 +29,5 @@ TODO:
 - Message test
 - SequenceMessage itest
 - Easy addEventListener like functionality with help of the `getzmqnotifications` rpc (bitcoincore-rpc PR: #295)
+- raw messages
+- zmq publisher
