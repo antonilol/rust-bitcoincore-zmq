@@ -2,8 +2,8 @@ mod endpoints;
 mod util;
 
 use bitcoincore_rpc::Client;
-use bitcoincore_zmq::{subscribe_multi, subscribe_single_blocking, Action, Message};
-use std::{assert_eq, sync::mpsc, thread};
+use bitcoincore_zmq::{subscribe_multi, subscribe_single_blocking, Message};
+use std::{assert_eq, ops::ControlFlow, sync::mpsc, thread};
 use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
 
 fn main() {
@@ -68,7 +68,7 @@ fn test_sub_blocking(rpc: &Client) {
             }
 
             // Stop after 1 message
-            Action::Stop
+            ControlFlow::Break(())
         })
         .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
     });

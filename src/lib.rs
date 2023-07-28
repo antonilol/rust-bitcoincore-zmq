@@ -9,6 +9,5 @@ pub use crate::{
     sequence_message::SequenceMessage,
     subscribe::{
         subscribe_multi, subscribe_multi_blocking, subscribe_single, subscribe_single_blocking,
-        Action,
     },
 };

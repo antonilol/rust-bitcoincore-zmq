@@ -4,37 +4,17 @@ use crate::{
     Error, DATA_MAX_LEN,
 };
 use std::{
+    ops::ControlFlow,
     sync::mpsc::{channel, Receiver},
     thread,
 };
 use zmq::{Context, Socket};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Action {
-    Continue,
-    Stop,
-}
-
-impl Action {
-    #[inline]
-    pub fn stop_if(cond: bool) -> Self {
-        if cond {
-            Self::Stop
-        } else {
-            Self::Continue
-        }
-    }
-
-    #[inline]
-    pub fn continue_if(cond: bool) -> Self {
-        Self::stop_if(!cond)
-    }
-}
-
-impl From<()> for Action {
-    #[inline]
-    fn from(_: ()) -> Self {
-        Self::Continue
+fn break_on_err(is_err: bool) -> ControlFlow<()> {
+    if is_err {
+        ControlFlow::Break(())
+    } else {
+        ControlFlow::Continue(())
     }
 }
 
@@ -46,7 +26,7 @@ pub fn subscribe_single(endpoint: &str) -> Result<Receiver<Result<Message>>> {
 
     let socket = new_socket_internal(&context, endpoint)?;
 
-    thread::spawn(move || subscribe_internal(socket, |msg| Action::stop_if(tx.send(msg).is_err())));
+    thread::spawn(move || subscribe_internal(socket, |msg| break_on_err(tx.send(msg).is_err())));
 
     Ok(rx)
 }
@@ -63,7 +43,7 @@ pub fn subscribe_multi(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> 
         let socket = new_socket_internal(&context, endpoint)?;
 
         thread::spawn(move || {
-            subscribe_internal(socket, |msg| Action::stop_if(tx.send(msg).is_err()))
+            subscribe_internal(socket, |msg| break_on_err(tx.send(msg).is_err()))
         });
     }
 
@@ -72,25 +52,23 @@ pub fn subscribe_multi(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> 
 
 /// Subscribes to a single ZMQ endpoint and blocks the thread until [`Action::Stop`] is returned by the callback
 #[inline]
-pub fn subscribe_single_blocking<F: Fn(Result<Message>) -> T, T: Into<Action>>(
-    endpoint: &str,
-    callback: F,
-) -> Result<()> {
+pub fn subscribe_single_blocking<F, B>(endpoint: &str, callback: F) -> Result<ControlFlow<B>>
+where
+    F: Fn(Result<Message>) -> ControlFlow<B>,
+{
     let context = Context::new();
 
     let socket = new_socket_internal(&context, endpoint)?;
 
-    subscribe_internal(socket, callback);
-
-    Ok(())
+    Ok(subscribe_internal(socket, callback))
 }
 
 /// Subscribes to multiple ZMQ endpoints and blocks the thread until [`Action::Stop`] is returned by the callback
 #[inline]
-pub fn subscribe_multi_blocking<F: Fn(Result<Message>) -> T, T: Into<Action>>(
-    endpoints: &[&str],
-    callback: F,
-) -> Result<()> {
+pub fn subscribe_multi_blocking<F, B>(endpoints: &[&str], callback: F) -> Result<ControlFlow<B>>
+where
+    F: Fn(Result<Message>) -> ControlFlow<B>,
+{
     let (tx, rx) = channel();
     let context = Context::new();
 
@@ -100,17 +78,17 @@ pub fn subscribe_multi_blocking<F: Fn(Result<Message>) -> T, T: Into<Action>>(
         let socket = new_socket_internal(&context, endpoint)?;
 
         thread::spawn(move || {
-            subscribe_internal(socket, |msg| Action::stop_if(tx.send(msg).is_err()))
+            subscribe_internal(socket, |msg| break_on_err(tx.send(msg).is_err()))
         });
     }
 
-    for msg in rx {
-        if callback(msg).into() == Action::Stop {
-            break;
+    Ok((|| -> ControlFlow<B> {
+        for msg in rx {
+            callback(msg)?;
         }
-    }
 
-    Ok(())
+        ControlFlow::Continue(())
+    })())
 }
 
 #[inline]
@@ -168,15 +146,16 @@ fn recv_internal(socket: &Socket, data: &mut [u8; DATA_MAX_LEN]) -> Result<Messa
 }
 
 #[inline]
-fn subscribe_internal<F: Fn(Result<Message>) -> T, T: Into<Action>>(socket: Socket, callback: F) {
+fn subscribe_internal<F, B>(socket: Socket, callback: F) -> ControlFlow<B>
+where
+    F: Fn(Result<Message>) -> ControlFlow<B>,
+{
     let mut data: Box<[u8; DATA_MAX_LEN]> =
         vec![0; DATA_MAX_LEN].into_boxed_slice().try_into().unwrap();
 
     loop {
         let msg = recv_internal(&socket, &mut data);
 
-        if callback(msg).into() == Action::Stop {
-            break;
-        }
+        callback(msg)?;
     }
 }
