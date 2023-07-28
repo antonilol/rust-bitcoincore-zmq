@@ -3,7 +3,7 @@ use crate::{
     message::{Message, SEQUENCE_LEN, TOPIC_MAX_LEN},
     Error, DATA_MAX_LEN,
 };
-use core::ops::ControlFlow;
+use core::{convert::Infallible, ops::ControlFlow};
 use std::{
     sync::mpsc::{channel, Receiver},
     thread,
@@ -50,9 +50,13 @@ pub fn subscribe_multi(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> 
     Ok(rx)
 }
 
-/// Subscribes to a single ZMQ endpoint and blocks the thread until [`ControlFlow::Break`] is returned by the callback.
+/// Subscribes to a single ZMQ endpoint and blocks the thread until [`ControlFlow::Break`] is
+/// returned by the callback.
 #[inline]
-pub fn subscribe_single_blocking<F, B>(endpoint: &str, callback: F) -> Result<ControlFlow<B>>
+pub fn subscribe_single_blocking<F, B>(
+    endpoint: &str,
+    callback: F,
+) -> Result<ControlFlow<B, Infallible>>
 where
     F: Fn(Result<Message>) -> ControlFlow<B>,
 {
@@ -63,9 +67,13 @@ where
     Ok(subscribe_internal(socket, callback))
 }
 
-/// Subscribes to multiple ZMQ endpoints and blocks the thread until [`ControlFlow::Break`] is returned by the callback.
+/// Subscribes to multiple ZMQ endpoints and blocks the thread until [`ControlFlow::Break`] is
+/// returned by the callback.
 #[inline]
-pub fn subscribe_multi_blocking<F, B>(endpoints: &[&str], callback: F) -> Result<ControlFlow<B>>
+pub fn subscribe_multi_blocking<F, B>(
+    endpoints: &[&str],
+    callback: F,
+) -> Result<ControlFlow<B, Infallible>>
 where
     F: Fn(Result<Message>) -> ControlFlow<B>,
 {
@@ -82,12 +90,13 @@ where
         });
     }
 
-    Ok((|| -> ControlFlow<B> {
+    Ok((|| {
         for msg in rx {
             callback(msg)?;
         }
 
-        ControlFlow::Continue(())
+        // `tx` is dropped at the end of this function
+        unreachable!();
     })())
 }
 
@@ -146,7 +155,7 @@ fn recv_internal(socket: &Socket, data: &mut [u8; DATA_MAX_LEN]) -> Result<Messa
 }
 
 #[inline]
-fn subscribe_internal<F, B>(socket: Socket, callback: F) -> ControlFlow<B>
+fn subscribe_internal<F, B>(socket: Socket, callback: F) -> ControlFlow<B, Infallible>
 where
     F: Fn(Result<Message>) -> ControlFlow<B>,
 {
