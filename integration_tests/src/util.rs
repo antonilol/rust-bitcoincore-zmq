@@ -1,7 +1,7 @@
 use bitcoin::{Address, BlockHash};
 use bitcoincore_rpc::{Auth, Client, RpcApi};
-use core::fmt::Debug;
-use std::{env, sync::mpsc::Receiver, thread, time::Duration};
+use core::{fmt::Debug, time::Duration};
+use std::{env, sync::mpsc::Receiver, thread};
 
 pub const RECV_TIMEOUT: Duration = Duration::from_secs(10);
 

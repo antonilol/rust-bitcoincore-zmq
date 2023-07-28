@@ -3,8 +3,8 @@ use crate::{
     message::{Message, SEQUENCE_LEN, TOPIC_MAX_LEN},
     Error, DATA_MAX_LEN,
 };
+use core::ops::ControlFlow;
 use std::{
-    ops::ControlFlow,
     sync::mpsc::{channel, Receiver},
     thread,
 };
