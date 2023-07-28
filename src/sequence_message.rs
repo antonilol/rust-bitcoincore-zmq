@@ -75,7 +75,7 @@ impl SequenceMessage {
         }
     }
 
-    /// Deserializes bytes to a [`SequenceMessage`]
+    /// Deserializes bytes to a [`SequenceMessage`].
     #[inline]
     pub fn from_byte_slice<T: AsRef<[u8]>>(bytes: T) -> Result<Self> {
         let bytes = bytes.as_ref();
@@ -118,7 +118,7 @@ impl SequenceMessage {
         })
     }
 
-    /// Serializes a [`SequenceMessage`] to bytes
+    /// Serializes a [`SequenceMessage`] to bytes.
     #[inline]
     pub fn serialize_to_vec(&self) -> Vec<u8> {
         let mut ret = Vec::with_capacity(self.raw_length());

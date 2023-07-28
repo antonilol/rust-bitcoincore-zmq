@@ -18,7 +18,7 @@ fn break_on_err(is_err: bool) -> ControlFlow<()> {
     }
 }
 
-/// Subscribes to a single ZMQ endpoint and returns a [`Receiver`]
+/// Subscribes to a single ZMQ endpoint and returns a [`Receiver`].
 #[inline]
 pub fn subscribe_single(endpoint: &str) -> Result<Receiver<Result<Message>>> {
     let (tx, rx) = channel();
@@ -31,7 +31,7 @@ pub fn subscribe_single(endpoint: &str) -> Result<Receiver<Result<Message>>> {
     Ok(rx)
 }
 
-/// Subscribes to multiple ZMQ endpoints and returns a [`Receiver`]
+/// Subscribes to multiple ZMQ endpoints and returns a [`Receiver`].
 #[inline]
 pub fn subscribe_multi(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> {
     let (tx, rx) = channel();
@@ -50,7 +50,7 @@ pub fn subscribe_multi(endpoints: &[&str]) -> Result<Receiver<Result<Message>>> 
     Ok(rx)
 }
 
-/// Subscribes to a single ZMQ endpoint and blocks the thread until [`Action::Stop`] is returned by the callback
+/// Subscribes to a single ZMQ endpoint and blocks the thread until [`ControlFlow::Break`] is returned by the callback.
 #[inline]
 pub fn subscribe_single_blocking<F, B>(endpoint: &str, callback: F) -> Result<ControlFlow<B>>
 where
@@ -63,7 +63,7 @@ where
     Ok(subscribe_internal(socket, callback))
 }
 
-/// Subscribes to multiple ZMQ endpoints and blocks the thread until [`Action::Stop`] is returned by the callback
+/// Subscribes to multiple ZMQ endpoints and blocks the thread until [`ControlFlow::Break`] is returned by the callback.
 #[inline]
 pub fn subscribe_multi_blocking<F, B>(endpoints: &[&str], callback: F) -> Result<ControlFlow<B>>
 where
