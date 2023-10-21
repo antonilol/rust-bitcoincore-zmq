@@ -17,7 +17,7 @@ fn main() {
 
 fn test_hashblock(rpc: &Client) {
     let receiver = subscribe_multi(&[endpoints::HASHBLOCK, endpoints::RAWBLOCK])
-        .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
+        .expect("failed to subscribe to Bitcoin Core's ZMQ publisher");
 
     let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
 
@@ -35,7 +35,7 @@ fn test_hashblock(rpc: &Client) {
 
 fn test_hashtx(rpc: &Client) {
     let receiver = subscribe_multi(&[endpoints::HASHTX, endpoints::RAWTX])
-        .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
+        .expect("failed to subscribe to Bitcoin Core's ZMQ publisher");
 
     generate(rpc, 1).expect("rpc call failed");
 
@@ -71,7 +71,7 @@ fn test_sub_blocking(rpc: &Client) {
             // Stop after 1 message
             ControlFlow::Break(())
         })
-        .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
+        .expect("failed to subscribe to Bitcoin Core's ZMQ publisher");
     });
 
     sleep(1000);
