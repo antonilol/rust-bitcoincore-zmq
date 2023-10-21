@@ -2,8 +2,9 @@ mod endpoints;
 mod util;
 
 use bitcoincore_rpc::Client;
-use bitcoincore_zmq::{subscribe_multi, subscribe_single_blocking, Message};
+use bitcoincore_zmq::{subscribe_multi, subscribe_multi_async, subscribe_single_blocking, Message};
 use core::{assert_eq, ops::ControlFlow};
+use futures::StreamExt;
 use std::{sync::mpsc, thread};
 use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
 
@@ -23,6 +24,7 @@ fn main() {
         test_hashblock,
         test_hashtx,
         test_sub_blocking,
+        test_hashblock_async,
     }
 }
 
@@ -92,4 +94,32 @@ fn test_sub_blocking(rpc: &Client) {
     let zmq_hash = rx.recv_timeout(RECV_TIMEOUT).unwrap();
 
     assert_eq!(rpc_hash, zmq_hash);
+}
+
+fn test_hashblock_async(rpc: &Client) {
+    let mut stream = subscribe_multi_async(&[endpoints::HASHBLOCK, endpoints::RAWBLOCK])
+        .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
+
+    let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
+
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || {
+        futures::executor::block_on(async {
+            while let Some(msg) = stream.next().await {
+                tx.send(msg).unwrap();
+            }
+        })
+    });
+
+    match recv_timeout_2(&rx) {
+        (Message::Block(block, _), Message::HashBlock(blockhash, _))
+        | (Message::HashBlock(blockhash, _), Message::Block(block, _)) => {
+            assert_eq!(rpc_hash, block.block_hash());
+            assert_eq!(rpc_hash, blockhash);
+        }
+        (msg1, msg2) => {
+            panic!("invalid messages received: ({msg1}, {msg2})");
+        }
+    }
 }
