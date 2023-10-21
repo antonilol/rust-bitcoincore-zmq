@@ -16,7 +16,7 @@ jobs:
       matrix:
         bitcoin_core_version:
           [
-            "25.0",
+            "25.1",
             "24.1",
             "23.2",
           ]
