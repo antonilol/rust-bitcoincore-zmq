@@ -28,6 +28,8 @@ echo "Running tests"
 BITCOIN_CORE_COOKIE_PATH="$datadir/regtest/.cookie" cargo run
 
 echo
+echo "All tests were successful"
+echo
 
 bitcoin-cli stop
 tail --pid=$(cat "$datadir"/regtest/bitcoind.pid) -f /dev/null
