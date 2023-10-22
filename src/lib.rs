@@ -15,5 +15,5 @@ pub use crate::{
 
 #[cfg(feature = "async")]
 pub use crate::subscribe::stream::{
-    subscribe_async, subscribe_multi_async, MessageStream, MultiMessageStream,
+    subscribe_multi_async, subscribe_single_async, MessageStream, MultiMessageStream,
 };

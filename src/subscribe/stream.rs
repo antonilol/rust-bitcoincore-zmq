@@ -106,7 +106,7 @@ pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
     Ok(res)
 }
 
-pub fn subscribe_async(endpoint: &str) -> Result<MessageStream> {
+pub fn subscribe_single_async(endpoint: &str) -> Result<MessageStream> {
     Ok(MessageStream::new(
         new_socket_internal(&ZmqContext::new(), endpoint)?.into(),
     ))
