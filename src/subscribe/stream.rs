@@ -1,5 +1,6 @@
-use crate::{error::Result, message::Message, subscribe::recv_internal, DATA_MAX_LEN};
-use async_zmq::{subscribe, Stream, StreamExt, Subscribe};
+use super::{new_socket_internal, recv_internal};
+use crate::{error::Result, message::Message, DATA_MAX_LEN};
+use async_zmq::{Stream, StreamExt, Subscribe};
 use core::{
     pin::Pin,
     task::{Context as AsyncContext, Poll},
@@ -92,7 +93,7 @@ pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
     let mut res = MultiMessageStream::new(endpoints.len());
 
     for endpoint in endpoints {
-        let socket = new_socket_internal(&context, endpoint)?;
+        let socket = new_socket_internal(&context, endpoint)?.into();
         res.push(socket);
     }
 
@@ -100,15 +101,7 @@ pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
 }
 
 pub fn subscribe_async(endpoint: &str) -> Result<MessageStream> {
-    Ok(MessageStream::new(new_socket_internal(
-        &ZmqContext::new(),
-        endpoint,
-    )?))
-}
-
-fn new_socket_internal(context: &ZmqContext, endpoint: &str) -> Result<Subscribe> {
-    let socket = subscribe(endpoint)?.with_context(context).connect()?;
-    socket.set_subscribe("")?;
-
-    Ok(socket)
+    Ok(MessageStream::new(
+        new_socket_internal(&ZmqContext::new(), endpoint)?.into(),
+    ))
 }
