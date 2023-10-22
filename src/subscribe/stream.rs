@@ -5,7 +5,7 @@ use core::{
     pin::Pin,
     task::{Context as AsyncContext, Poll},
 };
-use futures_util::stream::Fuse;
+use futures_util::stream::{Fuse, FusedStream};
 use zmq::Context as ZmqContext;
 
 /// Stream that asynchronously produces [`Message`]s using a ZMQ subscriber.
@@ -85,6 +85,12 @@ impl Stream for MultiMessageStream {
         } else {
             Poll::Ready(None)
         }
+    }
+}
+
+impl FusedStream for MultiMessageStream {
+    fn is_terminated(&self) -> bool {
+        self.streams.iter().all(|stream| stream.is_terminated())
     }
 }
 
