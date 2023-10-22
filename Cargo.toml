@@ -22,3 +22,16 @@ zmq = "0.10.0"
 [dev-dependencies]
 futures = "0.3.28"
 futures-util = "0.3.28"
+
+[[example]]
+name = "subscribe_async"
+required-features = ["async"]
+
+[[example]]
+name = "subscribe_blocking"
+
+[[example]]
+name = "subscribe_receiver_pool"
+
+[[example]]
+name = "subscribe_receiver"
