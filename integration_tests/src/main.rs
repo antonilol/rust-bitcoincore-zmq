@@ -4,7 +4,7 @@ mod util;
 use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{subscribe_multi, subscribe_multi_async, subscribe_single_blocking, Message};
 use core::{assert_eq, ops::ControlFlow};
-use futures::{StreamExt, executor::block_on};
+use futures::{executor::block_on, StreamExt};
 use std::{sync::mpsc, thread};
 use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
 
