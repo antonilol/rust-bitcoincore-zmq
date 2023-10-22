@@ -2,7 +2,7 @@
 [![Integration tests](https://github.com/antonilol/rust-bitcoincore-zmq/actions/workflows/integration_tests.yml/badge.svg)](https://github.com/antonilol/rust-bitcoincore-zmq/actions/workflows/integration_tests.yml)
 [![crates.io](https://img.shields.io/crates/v/bitcoincore-zmq.svg)](https://crates.io/crates/bitcoincore-zmq)
 
-# Rust Bitcoin Core ZMQ
+# Rust Bitcoin Core ZMQ Subscriber
 
 ### Usage example
 
@@ -17,10 +17,16 @@ fn main() {
 }
 ```
 
+For more examples, have a look in the [examples directory](examples).
+
 ### Testing
 
 Tests run on every push and pull request.
 Integration tests use the latest version of the 3 most recent major Bitcoin Core versions, see [integration_tests.yml](.github/workflows/integration_tests.yml#L19-L21).
+
+### Useful resources
+
+- [Bitcoin Core ZMQ documentation](https://github.com/bitcoin/bitcoin/blob/master/doc/zmq.md)
 
 ---
 
@@ -31,3 +37,4 @@ TODO:
 - Easy addEventListener like functionality with help of the `getzmqnotifications` rpc (bitcoincore-rpc PR: #295)
 - raw messages
 - zmq publisher
+- async I/O ([pr](https://github.com/antonilol/rust-bitcoincore-zmq/pull/4))
