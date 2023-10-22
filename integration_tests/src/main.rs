@@ -7,12 +7,23 @@ use core::{assert_eq, ops::ControlFlow};
 use std::{sync::mpsc, thread};
 use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
 
-fn main() {
-    let rpc = setup_rpc();
+macro_rules! test {
+    ($($function:ident,)*) => {
+        let rpc = setup_rpc();
+        $(
+            println!(concat!("Running ", stringify!($function), "..."));
+            $function(&rpc);
+            println!("ok");
+        )*
+    };
+}
 
-    test_hashblock(&rpc);
-    test_hashtx(&rpc);
-    test_sub_blocking(&rpc);
+fn main() {
+    test! {
+        test_hashblock,
+        test_hashtx,
+        test_sub_blocking,
+    }
 }
 
 fn test_hashblock(rpc: &Client) {
