@@ -1,4 +1,5 @@
 use bitcoincore_zmq::subscribe_single_async;
+use futures::executor::block_on;
 use futures_util::StreamExt;
 
 fn main() {
@@ -6,7 +7,7 @@ fn main() {
 
     // This is a small example to demonstrate subscribe_single_async, it is okay here to use
     // block_on, but not in production environments as this defeats the purpose of async.
-    futures::executor::block_on(async {
+    block_on(async {
         while let Some(msg) = stream.next().await {
             match msg {
                 Ok(msg) => println!("Received message: {msg}"),

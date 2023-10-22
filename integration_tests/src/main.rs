@@ -4,7 +4,7 @@ mod util;
 use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{subscribe_multi, subscribe_multi_async, subscribe_single_blocking, Message};
 use core::{assert_eq, ops::ControlFlow};
-use futures::StreamExt;
+use futures::{StreamExt, executor::block_on};
 use std::{sync::mpsc, thread};
 use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
 
@@ -105,7 +105,7 @@ fn test_hashblock_async(rpc: &Client) {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        futures::executor::block_on(async {
+        block_on(async {
             while let Some(msg) = stream.next().await {
                 tx.send(msg).unwrap();
             }
