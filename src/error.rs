@@ -24,6 +24,30 @@ impl From<zmq::Error> for Error {
     }
 }
 
+#[cfg(feature = "async")]
+impl From<async_zmq::SocketError> for Error {
+    #[inline]
+    fn from(value: async_zmq::SocketError) -> Self {
+        Self::Zmq(value.into())
+    }
+}
+
+#[cfg(feature = "async")]
+impl From<async_zmq::SubscribeError> for Error {
+    #[inline]
+    fn from(value: async_zmq::SubscribeError) -> Self {
+        Self::Zmq(value.into())
+    }
+}
+
+#[cfg(feature = "async")]
+impl From<async_zmq::RecvError> for Error {
+    #[inline]
+    fn from(value: async_zmq::RecvError) -> Self {
+        Self::Zmq(value.into())
+    }
+}
+
 impl From<consensus::encode::Error> for Error {
     #[inline]
     fn from(value: consensus::encode::Error) -> Self {

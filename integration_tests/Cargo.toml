@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 bitcoin = "0.30.0"
 bitcoincore-rpc = "0.17.0"
-bitcoincore-zmq = { path = ".." }
+bitcoincore-zmq = { path = "..", features = ["async"] }
+futures = "0.3.28"

@@ -8,6 +8,12 @@ pub use crate::{
     message::{Message, DATA_MAX_LEN, SEQUENCE_LEN, TOPIC_MAX_LEN},
     sequence_message::SequenceMessage,
     subscribe::{
-        subscribe_multi, subscribe_multi_blocking, subscribe_single, subscribe_single_blocking,
+        blocking::{subscribe_multi_blocking, subscribe_single_blocking},
+        receiver::{subscribe_multi, subscribe_single},
     },
+};
+
+#[cfg(feature = "async")]
+pub use crate::subscribe::stream::{
+    subscribe_multi_async, subscribe_single_async, MessageStream, MultiMessageStream,
 };
