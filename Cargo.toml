@@ -21,7 +21,6 @@ zmq = "0.10.0"
 # dev dependencies can be used in examples
 [dev-dependencies]
 futures = "0.3.28"
-futures-util = "0.3.28"
 
 [[example]]
 name = "subscribe_async"
