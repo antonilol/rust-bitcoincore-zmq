@@ -5,7 +5,7 @@ use core::{
     pin::Pin,
     task::{Context as AsyncContext, Poll},
 };
-use futures_util::stream::{Fuse, FusedStream};
+use futures_util::stream::FusedStream;
 use zmq::Context as ZmqContext;
 
 /// Stream that asynchronously produces [`Message`]s using a ZMQ subscriber.
@@ -20,6 +20,15 @@ impl MessageStream {
             zmq_stream,
             data_cache: vec![0; DATA_MAX_LEN].into_boxed_slice().try_into().unwrap(),
         }
+    }
+
+    /// Returns a reference to the ZMQ socket used by this stream. To get the [`zmq::Socket`], use
+    /// [`as_raw_socket`] on the result. This is useful to set socket options or use other
+    /// functions provided by [`zmq`] or [`async_zmq`].
+    ///
+    /// [`as_raw_socket`]: Subscribe::as_raw_socket
+    pub fn as_zmq_socket(&self) -> &Subscribe {
+        &self.zmq_stream
     }
 }
 
@@ -36,9 +45,16 @@ impl Stream for MessageStream {
     }
 }
 
-/// Stream that asynchronously produces [`Message`]s using multiple ZMQ subscriber.
+impl FusedStream for MessageStream {
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
+/// Stream that asynchronously produces [`Message`]s using multiple ZMQ subscribers. The ZMQ
+/// sockets are polled in a round-robin fashion.
 pub struct MultiMessageStream {
-    streams: Vec<Fuse<MessageStream>>,
+    streams: Vec<MessageStream>,
     next: usize,
 }
 
@@ -51,8 +67,21 @@ impl MultiMessageStream {
     }
 
     fn push(&mut self, stream: Subscribe) {
-        // Not sure if fuse is needed, but has to prevent use of closed streams.
-        self.streams.push(MessageStream::new(stream).fuse());
+        self.streams.push(MessageStream::new(stream));
+    }
+
+    /// Returns a reference to the separate [`MessageStream`]s this [`MultiMessageStream`] is made
+    /// of. This is useful to set socket options or use other functions provided by [`zmq`] or
+    /// [`async_zmq`]. (See [`MessageStream::as_zmq_socket`])
+    pub fn as_streams(&self) -> &[MessageStream] {
+        &self.streams
+    }
+
+    /// Returns the separate [`MessageStream`]s this [`MultiMessageStream`] is made of. This is
+    /// useful to set socket options or use other functions provided by [`zmq`] or [`async_zmq`].
+    /// (See [`MessageStream::as_zmq_socket`])
+    pub fn into_streams(self) -> Vec<MessageStream> {
+        self.streams
     }
 }
 
@@ -60,8 +89,6 @@ impl Stream for MultiMessageStream {
     type Item = Result<Message>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
-        let mut any_pending = false;
-
         let mut index_iter = (self.next..self.streams.len()).chain(0..self.next);
         while let Some(i) = index_iter.next() {
             match self.as_mut().streams[i].poll_next_unpin(cx) {
@@ -72,28 +99,25 @@ impl Stream for MultiMessageStream {
                     return msg;
                 }
                 Poll::Ready(None) => {
-                    // continue
+                    // should never be returned by async_zmq
                 }
                 Poll::Pending => {
-                    any_pending = true;
+                    // continue, poll others and eventually return Poll::Pending
                 }
             }
         }
 
-        if any_pending {
-            Poll::Pending
-        } else {
-            Poll::Ready(None)
-        }
+        Poll::Pending
     }
 }
 
 impl FusedStream for MultiMessageStream {
     fn is_terminated(&self) -> bool {
-        self.streams.iter().all(|stream| stream.is_terminated())
+        false
     }
 }
 
+/// Subscribes to multiple ZMQ endpoints and returns a [`MultiMessageStream`].
 pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
     let context = ZmqContext::new();
     let mut res = MultiMessageStream::new(endpoints.len());
@@ -106,6 +130,7 @@ pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
     Ok(res)
 }
 
+/// Subscribes to a single ZMQ endpoint and returns a [`MessageStream`].
 pub fn subscribe_single_async(endpoint: &str) -> Result<MessageStream> {
     Ok(MessageStream::new(
         new_socket_internal(&ZmqContext::new(), endpoint)?.into(),

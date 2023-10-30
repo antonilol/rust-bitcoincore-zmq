@@ -57,8 +57,8 @@ impl SequenceMessage {
     /// adds or removes a transaction to the mempool.
     ///
     /// Note that transactions that got removed from the mempool because they were included in a
-    /// block increment Bitcoin Core's mempool sequence, they do not produce a [`MempoolRemoval`]
-    /// message.
+    /// block increment Bitcoin Core's mempool sequence, but they do not produce a
+    /// [`MempoolRemoval`] message.
     ///
     /// [`MempoolAcceptance`]: SequenceMessage::MempoolAcceptance
     /// [`MempoolRemoval`]: SequenceMessage::MempoolRemoval
