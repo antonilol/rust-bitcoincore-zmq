@@ -36,7 +36,7 @@ impl Stream for MessageStream {
     type Item = Result<Message>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
-        self.as_mut().zmq_stream.poll_next_unpin(cx).map(|opt| {
+        self.zmq_stream.poll_next_unpin(cx).map(|opt| {
             opt.map(|res| match res {
                 Ok(mp) => recv_internal(mp.iter(), &mut self.data_cache),
                 Err(err) => Err(err.into()),
@@ -91,7 +91,7 @@ impl Stream for MultiMessageStream {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
         let mut index_iter = (self.next..self.streams.len()).chain(0..self.next);
         while let Some(i) = index_iter.next() {
-            match self.as_mut().streams[i].poll_next_unpin(cx) {
+            match self.streams[i].poll_next_unpin(cx) {
                 msg @ Poll::Ready(Some(_)) => {
                     if let Some(next) = index_iter.next() {
                         self.next = next;
