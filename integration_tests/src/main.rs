@@ -68,7 +68,7 @@ fn test_sub_blocking(rpc: &Client) {
 
     let (tx, rx) = mpsc::channel();
 
-    thread::spawn(move || {
+    let h = thread::spawn(move || {
         subscribe_single_blocking(endpoints::HASHBLOCK, |msg| {
             let msg = msg.expect("zmq message error");
 
@@ -93,6 +93,8 @@ fn test_sub_blocking(rpc: &Client) {
 
     let zmq_hash = rx.recv_timeout(RECV_TIMEOUT).unwrap();
 
+    h.join().unwrap();
+
     assert_eq!(rpc_hash, zmq_hash);
 }
 
@@ -104,11 +106,10 @@ fn test_hashblock_async(rpc: &Client) {
 
     let (tx, rx) = mpsc::channel();
 
-    thread::spawn(move || {
+    let h = thread::spawn(move || {
         block_on(async {
-            while let Some(msg) = stream.next().await {
-                tx.send(msg).unwrap();
-            }
+            tx.send(stream.next().await.unwrap()).unwrap();
+            tx.send(stream.next().await.unwrap()).unwrap();
         })
     });
 
@@ -122,4 +123,6 @@ fn test_hashblock_async(rpc: &Client) {
             panic!("invalid messages received: ({msg1}, {msg2})");
         }
     }
+
+    h.join().unwrap();
 }
