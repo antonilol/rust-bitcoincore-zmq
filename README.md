@@ -45,4 +45,3 @@ TODO:
 - raw messages
 - zmq publisher
 - include source in message
-- fix docs for async/stream functions
