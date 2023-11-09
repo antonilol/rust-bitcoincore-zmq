@@ -1,4 +1,4 @@
-use bitcoincore_zmq::subscribe_multi;
+use bitcoincore_zmq::subscribe_receiver;
 use std::{
     sync::{Arc, Mutex},
     thread,
@@ -11,7 +11,7 @@ fn main() {
     let mut threads = Vec::new();
 
     let rx = Arc::new(Mutex::new(
-        subscribe_multi(&["tcp://127.0.0.1:28332", "tcp://127.0.0.1:28333"]).unwrap(),
+        subscribe_receiver(&["tcp://127.0.0.1:28332", "tcp://127.0.0.1:28333"]).unwrap(),
     ));
 
     for id in 0..POOL_THREADS {

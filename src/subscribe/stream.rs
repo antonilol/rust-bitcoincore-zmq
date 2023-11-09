@@ -53,8 +53,13 @@ impl FusedStream for MessageStream {
 
 /// Stream that asynchronously produces [`Message`]s using multiple ZMQ subscribers. The ZMQ
 /// sockets are polled in a round-robin fashion.
+#[deprecated(
+    since = "1.3.2",
+    note = "This struct is only used by deprecated functions."
+)]
 pub struct MultiMessageStream(pub MessageStream);
 
+#[allow(deprecated)]
 impl MultiMessageStream {
     /// Returns a reference to the separate [`MessageStream`]s this [`MultiMessageStream`] is made
     /// of. This is useful to set socket options or use other functions provided by [`zmq`] or
@@ -71,6 +76,7 @@ impl MultiMessageStream {
     }
 }
 
+#[allow(deprecated)]
 impl Stream for MultiMessageStream {
     type Item = Result<Message>;
 
@@ -79,6 +85,7 @@ impl Stream for MultiMessageStream {
     }
 }
 
+#[allow(deprecated)]
 impl FusedStream for MultiMessageStream {
     fn is_terminated(&self) -> bool {
         false
@@ -86,13 +93,27 @@ impl FusedStream for MultiMessageStream {
 }
 
 /// Subscribes to multiple ZMQ endpoints and returns a [`MultiMessageStream`].
+#[deprecated(
+    since = "1.3.2",
+    note = "Use subscribe_async. This function has no performance benefit over subscribe_single_async anymore."
+)]
+#[allow(deprecated)]
 pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
-    let (_context, socket) = new_socket_internal(endpoints)?;
-
-    Ok(MultiMessageStream(MessageStream::new(socket.into())))
+    subscribe_async(endpoints).map(MultiMessageStream)
 }
 
 /// Subscribes to a single ZMQ endpoint and returns a [`MessageStream`].
+#[deprecated(
+    since = "1.3.2",
+    note = "Use subscribe_async. The name changed because there is no distinction made anymore between subscribing to 1 or more endpoints."
+)]
 pub fn subscribe_single_async(endpoint: &str) -> Result<MessageStream> {
-    Ok(subscribe_multi_async(&[endpoint])?.0)
+    subscribe_async(&[endpoint])
+}
+
+/// Subscribes to multiple ZMQ endpoints and returns a [`MessageStream`].
+pub fn subscribe_async(endpoints: &[&str]) -> Result<MessageStream> {
+    let (_context, socket) = new_socket_internal(endpoints)?;
+
+    Ok(MessageStream::new(socket.into()))
 }
