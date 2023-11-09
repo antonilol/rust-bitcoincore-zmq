@@ -1,4 +1,4 @@
-use bitcoincore_zmq::subscribe_single_blocking;
+use bitcoincore_zmq::subscribe_blocking;
 use core::ops::ControlFlow;
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
         ControlFlow::Continue(())
     };
 
-    match subscribe_single_blocking("tcp://127.0.0.1:28359", callback) {
+    match subscribe_blocking(&["tcp://127.0.0.1:28359"], callback) {
         Ok(ControlFlow::Break(err)) => {
             // Callback exited by returning ControlFlow::Break
             println!("Error receiving message: {err}");

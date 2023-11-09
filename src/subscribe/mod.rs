@@ -11,12 +11,17 @@ use crate::{
 use core::{cmp::min, convert::Infallible, ops::ControlFlow, slice};
 use zmq::{Context, Socket};
 
-pub(super) fn new_socket_internal(context: &Context, endpoint: &str) -> Result<Socket> {
+pub(super) fn new_socket_internal(endpoints: &[&str]) -> Result<(Context, Socket)> {
+    let context = Context::new();
+
     let socket = context.socket(zmq::SUB)?;
-    socket.connect(endpoint)?;
     socket.set_subscribe(b"")?;
 
-    Ok(socket)
+    for endpoint in endpoints {
+        socket.connect(endpoint)?;
+    }
+
+    Ok((context, socket))
 }
 
 pub(super) trait ReceiveFrom {

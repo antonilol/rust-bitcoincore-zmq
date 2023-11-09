@@ -2,7 +2,7 @@ mod endpoints;
 mod util;
 
 use bitcoincore_rpc::Client;
-use bitcoincore_zmq::{subscribe_multi, subscribe_multi_async, subscribe_single_blocking, Message};
+use bitcoincore_zmq::{subscribe_async, subscribe_blocking, subscribe_receiver, Message};
 use core::{assert_eq, ops::ControlFlow};
 use futures::{executor::block_on, StreamExt};
 use std::{sync::mpsc, thread};
@@ -29,7 +29,7 @@ fn main() {
 }
 
 fn test_hashblock(rpc: &Client) {
-    let receiver = subscribe_multi(&[endpoints::HASHBLOCK, endpoints::RAWBLOCK])
+    let receiver = subscribe_receiver(&[endpoints::HASHBLOCK, endpoints::RAWBLOCK])
         .expect("failed to subscribe to Bitcoin Core's ZMQ publisher");
 
     let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
@@ -47,7 +47,7 @@ fn test_hashblock(rpc: &Client) {
 }
 
 fn test_hashtx(rpc: &Client) {
-    let receiver = subscribe_multi(&[endpoints::HASHTX, endpoints::RAWTX])
+    let receiver = subscribe_receiver(&[endpoints::HASHTX, endpoints::RAWTX])
         .expect("failed to subscribe to Bitcoin Core's ZMQ publisher");
 
     generate(rpc, 1).expect("rpc call failed");
@@ -69,7 +69,7 @@ fn test_sub_blocking(rpc: &Client) {
     let (tx, rx) = mpsc::channel();
 
     let h = thread::spawn(move || {
-        subscribe_single_blocking(endpoints::HASHBLOCK, |msg| {
+        subscribe_blocking(&[endpoints::HASHBLOCK], |msg| {
             let msg = msg.expect("zmq message error");
 
             match msg {
@@ -99,7 +99,7 @@ fn test_sub_blocking(rpc: &Client) {
 }
 
 fn test_hashblock_async(rpc: &Client) {
-    let mut stream = subscribe_multi_async(&[endpoints::HASHBLOCK, endpoints::RAWBLOCK])
+    let mut stream = subscribe_async(&[endpoints::HASHBLOCK, endpoints::RAWBLOCK])
         .expect("failed to subscribe to Bitcoin Core's ZMQ subscriber");
 
     let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];

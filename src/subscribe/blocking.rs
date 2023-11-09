@@ -1,20 +1,14 @@
 use super::{new_socket_internal, subscribe_internal};
 use crate::{error::Result, message::Message};
 use core::{convert::Infallible, ops::ControlFlow};
-use std::{sync::mpsc::channel, thread};
-use zmq::Context;
-
-fn break_on_err(is_err: bool) -> ControlFlow<()> {
-    if is_err {
-        ControlFlow::Break(())
-    } else {
-        ControlFlow::Continue(())
-    }
-}
 
 /// Subscribes to a single ZMQ endpoint and blocks the thread until [`ControlFlow::Break`] is
 /// returned by the callback.
 #[inline]
+#[deprecated(
+    since = "1.3.2",
+    note = "Use subscribe_blocking. This function has no performance benefit over subscribe_multi_blocking anymore."
+)]
 pub fn subscribe_single_blocking<F, B>(
     endpoint: &str,
     callback: F,
@@ -22,16 +16,16 @@ pub fn subscribe_single_blocking<F, B>(
 where
     F: Fn(Result<Message>) -> ControlFlow<B>,
 {
-    let context = Context::new();
-
-    let socket = new_socket_internal(&context, endpoint)?;
-
-    Ok(subscribe_internal(socket, callback))
+    subscribe_blocking(&[endpoint], callback)
 }
 
 /// Subscribes to multiple ZMQ endpoints and blocks the thread until [`ControlFlow::Break`] is
 /// returned by the callback.
 #[inline]
+#[deprecated(
+    since = "1.3.2",
+    note = "Use subscribe_blocking. The name changed because there is no distinction made anymore between subscribing to 1 or more endpoints."
+)]
 pub fn subscribe_multi_blocking<F, B>(
     endpoints: &[&str],
     callback: F,
@@ -39,25 +33,20 @@ pub fn subscribe_multi_blocking<F, B>(
 where
     F: Fn(Result<Message>) -> ControlFlow<B>,
 {
-    let (tx, rx) = channel();
-    let context = Context::new();
+    subscribe_blocking(endpoints, callback)
+}
 
-    for endpoint in endpoints {
-        let tx = tx.clone();
+/// Subscribes to multiple ZMQ endpoints and blocks the thread until [`ControlFlow::Break`] is
+/// returned by the callback.
+#[inline]
+pub fn subscribe_blocking<F, B>(
+    endpoints: &[&str],
+    callback: F,
+) -> Result<ControlFlow<B, Infallible>>
+where
+    F: Fn(Result<Message>) -> ControlFlow<B>,
+{
+    let (_context, socket) = new_socket_internal(endpoints)?;
 
-        let socket = new_socket_internal(&context, endpoint)?;
-
-        thread::spawn(move || {
-            subscribe_internal(socket, |msg| break_on_err(tx.send(msg).is_err()))
-        });
-    }
-
-    Ok((|| {
-        for msg in rx {
-            callback(msg)?;
-        }
-
-        // `tx` is dropped at the end of this function
-        unreachable!();
-    })())
+    Ok(subscribe_internal(socket, callback))
 }
