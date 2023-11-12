@@ -9,7 +9,7 @@
 
 ```rust
 fn main() {
-    for msg in bitcoincore_zmq::subscribe_multi(&["tcp://127.0.0.1:28359"]).unwrap() {
+    for msg in bitcoincore_zmq::subscribe_receiver(&["tcp://127.0.0.1:28359"]).unwrap() {
         match msg {
             Ok(msg) => println!("Received message: {msg}"),
             Err(err) => println!("Error receiving message: {err}"),
