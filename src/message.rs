@@ -36,8 +36,8 @@ impl Message {
         let topic = match self {
             Self::HashBlock(..) => "hashblock",
             Self::HashTx(..) => "hashtx",
-            Self::Block(..) => "block",
-            Self::Tx(..) => "tx",
+            Self::Block(..) => "rawblock",
+            Self::Tx(..) => "rawtx",
             Self::Sequence(..) => "sequence",
         };
 
@@ -184,5 +184,77 @@ impl fmt::Display for Message {
             Self::Tx(tx, seq) => write!(f, "Tx({}, sequence={seq})", tx.txid()),
             Self::Sequence(sm, seq) => write!(f, "Sequence({sm}, sequence={seq})"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Error, Message};
+    use bitcoin::{consensus::serialize, constants::genesis_block, hashes::Hash, Network};
+
+    #[test]
+    fn test_deserialize_rawtx() {
+        let genesis_block = genesis_block(Network::Bitcoin);
+
+        let tx = &genesis_block.txdata[0];
+        let tx_bytes = serialize(tx);
+        let txid = tx.txid();
+        let mut txid_bytes = txid.to_byte_array();
+        txid_bytes.reverse();
+
+        let to_deserialize = [
+            b"rawtx" as &[u8],
+            &tx_bytes,
+            &[0x03, 0x00, 0x00, 0x00],
+            b"garbage",
+        ];
+
+        let msg = Message::from_multipart(&to_deserialize[..3]).unwrap();
+
+        assert_eq!(msg, Message::Tx(tx.clone(), 3));
+
+        assert_eq!(msg.topic_str(), "rawtx");
+        assert_eq!(msg.serialize_data_to_vec(), tx_bytes);
+        assert_eq!(msg.sequence(), 3);
+
+        assert_eq!(msg.serialize_to_vecs(), to_deserialize[0..3]);
+
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..0]),
+            Err(Error::InvalidMutlipartLength(0))
+        ));
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..1]),
+            Err(Error::InvalidMutlipartLength(1))
+        ));
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..2]),
+            Err(Error::InvalidMutlipartLength(2))
+        ));
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..4]),
+            Err(Error::InvalidMutlipartLength(4))
+        ));
+    }
+
+    #[test]
+    fn test_deserialize_hashtx() {
+        let genesis_block = genesis_block(Network::Bitcoin);
+
+        let txid = genesis_block.txdata[0].txid();
+        let mut txid_bytes = txid.to_byte_array();
+        txid_bytes.reverse();
+
+        let to_deserialize = [b"hashtx" as &[u8], &txid_bytes, &[0x04, 0x00, 0x00, 0x00]];
+
+        let msg = Message::from_multipart(&to_deserialize).unwrap();
+
+        assert_eq!(msg, Message::HashTx(txid, 4));
+
+        assert_eq!(msg.topic_str(), "hashtx");
+        assert_eq!(msg.serialize_data_to_vec(), txid_bytes);
+        assert_eq!(msg.sequence(), 4);
+
+        assert_eq!(msg.serialize_to_vecs(), to_deserialize);
     }
 }
