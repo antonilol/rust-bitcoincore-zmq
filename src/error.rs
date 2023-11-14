@@ -1,6 +1,6 @@
 use crate::message::{DATA_MAX_LEN, SEQUENCE_LEN, TOPIC_MAX_LEN};
 use bitcoin::consensus;
-use core::fmt;
+use core::{cmp::min, fmt};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -15,6 +15,20 @@ pub enum Error {
     Invalid256BitHashLength(usize),
     BitcoinDeserialization(consensus::encode::Error),
     Zmq(zmq::Error),
+}
+
+impl Error {
+    /// Returns the (invalid) topic as a byte slice (as this might not always be valid UTF-8). If
+    /// this error is not an [`Error::InvalidTopic`], [`None`] is returned. The real length is also
+    /// returned, if this is higher that the length of the slice, the data was truncated to fit
+    /// directly in the object, instead of with a heap allocation.
+    pub fn invalid_topic_data(&self) -> Option<(&[u8], usize)> {
+        if let Self::InvalidTopic(len, buf) = self {
+            Some((&buf[..min(*len, buf.len())], *len))
+        } else {
+            None
+        }
+    }
 }
 
 impl From<zmq::Error> for Error {
@@ -66,7 +80,7 @@ impl fmt::Display for Error {
                 write!(
                     f,
                     "invalid message topic '{}'{}",
-                    String::from_utf8_lossy(&topic[0..*len]),
+                    String::from_utf8_lossy(&topic[..min(*len, topic.len())]),
                     if *len > TOPIC_MAX_LEN {
                         " (truncated)"
                     } else {

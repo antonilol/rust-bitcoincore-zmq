@@ -8,7 +8,7 @@ use bitcoin::{
     hashes::Hash,
     Block, BlockHash, Transaction, Txid,
 };
-use core::fmt;
+use core::{cmp::min, fmt};
 
 pub const TOPIC_MAX_LEN: usize = 9;
 pub const DATA_MAX_LEN: usize = MAX_BLOCK_WEIGHT as usize;
@@ -134,7 +134,8 @@ impl Message {
             _ => {
                 let mut buf = [0; TOPIC_MAX_LEN];
 
-                buf[0..topic.len()].copy_from_slice(topic);
+                buf[..min(TOPIC_MAX_LEN, topic.len())]
+                    .copy_from_slice(&topic[..min(TOPIC_MAX_LEN, topic.len())]);
 
                 return Err(Error::InvalidTopic(topic.len(), buf));
             }
@@ -256,5 +257,40 @@ mod tests {
         assert_eq!(msg.sequence(), 4);
 
         assert_eq!(msg.serialize_to_vecs(), to_deserialize);
+    }
+
+    #[test]
+    fn test_deserialization_errors() {
+        let to_deserialize = [b"abc" as &[u8], &[], &[0x05, 0x00, 0x00, 0x00], b"garbage"];
+
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..0]),
+            Err(Error::InvalidMutlipartLength(0))
+        ));
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..1]),
+            Err(Error::InvalidMutlipartLength(1))
+        ));
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..2]),
+            Err(Error::InvalidMutlipartLength(2))
+        ));
+        assert_eq!(
+            Message::from_multipart(&to_deserialize[..3])
+                .expect_err("expected invalid topic")
+                .invalid_topic_data(),
+            Some((b"abc" as &[u8], 3))
+        );
+        assert!(matches!(
+            Message::from_multipart(&to_deserialize[..4]),
+            Err(Error::InvalidMutlipartLength(4))
+        ));
+
+        assert_eq!(
+            Message::from_multipart(&[b"hashblock!" as &[u8], &[], &[0x06, 0x00, 0x00, 0x00]])
+                .expect_err("expected invalid topic")
+                .invalid_topic_data(),
+            Some((b"hashblock" as &[u8], 10))
+        )
     }
 }
