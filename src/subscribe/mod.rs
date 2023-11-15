@@ -115,3 +115,26 @@ where
         callback(msg)?;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{subscribe::recv_internal, Error, DATA_MAX_LEN};
+
+    #[test]
+    fn test_invalid_data_len() {
+        const LEN: usize = 8 * 1024 * 1024;
+        let megabytes = vec![0; LEN];
+        let multipart = vec![
+            zmq::Message::from("topic"),
+            zmq::Message::from(megabytes),
+            zmq::Message::from(&[0x00u8, 0x00, 0x00, 0x00] as &[u8]),
+        ];
+
+        let mut temp_buffer: Box<[u8; DATA_MAX_LEN]> =
+            vec![0; DATA_MAX_LEN].into_boxed_slice().try_into().unwrap();
+        assert!(matches!(
+            recv_internal(multipart.iter(), &mut temp_buffer),
+            Err(Error::InvalidDataLength(LEN))
+        ));
+    }
+}
