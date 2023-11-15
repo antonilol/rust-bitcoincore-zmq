@@ -260,8 +260,13 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialization_errors() {
-        let to_deserialize = [b"abc" as &[u8], &[], &[0x05, 0x00, 0x00, 0x00], b"garbage"];
+    fn test_deserialization_error_mp_len() {
+        let to_deserialize = [
+            b"sequence" as &[u8],
+            &[],
+            &[0x05, 0x00, 0x00, 0x00],
+            b"garbage",
+        ];
 
         assert!(matches!(
             Message::from_multipart(&to_deserialize[..0]),
@@ -275,22 +280,67 @@ mod tests {
             Message::from_multipart(&to_deserialize[..2]),
             Err(Error::InvalidMutlipartLength(2))
         ));
-        assert_eq!(
-            Message::from_multipart(&to_deserialize[..3])
-                .expect_err("expected invalid topic")
-                .invalid_topic_data(),
-            Some((b"abc" as &[u8], 3))
-        );
         assert!(matches!(
             Message::from_multipart(&to_deserialize[..4]),
             Err(Error::InvalidMutlipartLength(4))
         ));
+    }
+
+    #[test]
+    fn test_deserialization_error_topic() {
+        assert_eq!(
+            Message::from_multipart(&[b"" as &[u8], &[], &[0x06, 0x00, 0x00, 0x00]])
+                .expect_err("expected invalid topic")
+                .invalid_topic_data(),
+            Some((b"" as &[u8], 0))
+        );
 
         assert_eq!(
-            Message::from_multipart(&[b"hashblock!" as &[u8], &[], &[0x06, 0x00, 0x00, 0x00]])
+            Message::from_multipart(&[b"abc" as &[u8], &[], &[0x07, 0x00, 0x00, 0x00]])
+                .expect_err("expected invalid topic")
+                .invalid_topic_data(),
+            Some((b"abc" as &[u8], 3))
+        );
+
+        assert_eq!(
+            Message::from_multipart(&[b"hashblock!" as &[u8], &[], &[0x08, 0x00, 0x00, 0x00]])
                 .expect_err("expected invalid topic")
                 .invalid_topic_data(),
             Some((b"hashblock" as &[u8], 10))
-        )
+        );
+
+        assert_eq!(
+            Message::from_multipart(&[
+                b"too long so gets truncated" as &[u8],
+                &[],
+                &[0x09, 0x00, 0x00, 0x00]
+            ])
+            .expect_err("expected invalid topic")
+            .invalid_topic_data(),
+            Some((b"too long " as &[u8], 26))
+        );
+    }
+
+    #[test]
+    fn test_deserialization_error_element_len() {
+        assert!(matches!(
+            Message::from_multipart(&[b"something" as &[u8], &[], b"not 4 bytes"]),
+            Err(Error::InvalidSequenceLength(11))
+        ));
+
+        assert!(matches!(
+            Message::from_multipart(&[b"hashtx" as &[u8], &[], &[0x0a, 0x00, 0x00, 0x00]]),
+            Err(Error::Invalid256BitHashLength(0))
+        ));
+
+        assert!(matches!(
+            Message::from_multipart(&[b"hashblock" as &[u8], &[0; 20], &[0x0b, 0x00, 0x00, 0x00]]),
+            Err(Error::Invalid256BitHashLength(20))
+        ));
+
+        assert!(matches!(
+            Message::from_multipart(&[b"sequence" as &[u8], &[0; 32], &[0x0c, 0x00, 0x00, 0x00]]),
+            Err(Error::InvalidSequenceMessageLength(32))
+        ));
     }
 }
