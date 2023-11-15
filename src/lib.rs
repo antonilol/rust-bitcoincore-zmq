@@ -1,19 +1,25 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod error;
+mod event;
 mod message;
 mod sequence_message;
 mod subscribe;
 
 pub use crate::{
     error::Error,
+    event::{EventMessage, HandshakeFailure, SocketEvent},
     message::{Message, DATA_MAX_LEN, SEQUENCE_LEN, TOPIC_MAX_LEN},
     sequence_message::SequenceMessage,
     subscribe::{blocking::subscribe_blocking, receiver::subscribe_receiver},
 };
 
 #[cfg(feature = "async")]
-pub use crate::subscribe::stream::{subscribe_async, MessageStream};
+pub use crate::subscribe::stream::{
+    subscribe_async, subscribe_async_monitor, subscribe_async_wait_handshake,
+    subscribe_async_wait_handshake_timeout, FiniteMessageStream, MessageStream, SocketMessage,
+    SocketMessageStream,
+};
 
 #[allow(deprecated)]
 pub use crate::subscribe::{

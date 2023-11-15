@@ -2,8 +2,11 @@ mod endpoints;
 mod util;
 
 use bitcoincore_rpc::Client;
-use bitcoincore_zmq::{subscribe_async, subscribe_blocking, subscribe_receiver, Message};
-use core::{assert_eq, ops::ControlFlow};
+use bitcoincore_zmq::{
+    subscribe_async, subscribe_async_monitor, subscribe_async_wait_handshake, subscribe_blocking,
+    subscribe_receiver, EventMessage, Message, SocketEvent, SocketMessage,
+};
+use core::{assert_eq, ops::ControlFlow, time::Duration};
 use futures::{executor::block_on, StreamExt};
 use std::{sync::mpsc, thread};
 use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
@@ -25,6 +28,8 @@ fn main() {
         test_hashtx,
         test_sub_blocking,
         test_hashblock_async,
+        test_monitor,
+        test_subscribe_timeout,
     }
 }
 
@@ -125,4 +130,65 @@ fn test_hashblock_async(rpc: &Client) {
     }
 
     h.join().unwrap();
+}
+
+fn test_monitor(rpc: &Client) {
+    let mut stream = subscribe_async_monitor(&[endpoints::HASHBLOCK])
+        .expect("failed to subscribe to Bitcoin Core's ZMQ publisher");
+
+    block_on(async {
+        while let Some(msg) = stream.next().await {
+            let msg = msg.unwrap();
+            match msg {
+                SocketMessage::Message(msg) => {
+                    // TODO remove debug printlns before merging
+                    println!("received real message: {msg}");
+                    break;
+                }
+                SocketMessage::Event(EventMessage { event, source_url }) => {
+                    // TODO remove debug printlns before merging
+                    println!("received monitor message: {event:?} from {source_url}");
+                    if event == SocketEvent::HandshakeSucceeded {
+                        // there is a zmq publisher on the other side!
+                        // generate a block to generate a message
+                        generate(rpc, 1).expect("rpc call failed");
+                    }
+                }
+            }
+        }
+    });
+}
+
+fn test_subscribe_timeout(_rpc: &Client) {
+    const TIMEOUT: Duration = Duration::from_millis(2000);
+
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            tokio::time::timeout(
+                TIMEOUT,
+                subscribe_async_wait_handshake(&[endpoints::HASHBLOCK]),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+            tokio::time::timeout(
+                TIMEOUT,
+                subscribe_async_wait_handshake(&["tcp://localhost:18443"]),
+            )
+            .await
+            .map(|_| ())
+            .expect_err("an http server will not make a zmtp handshake");
+
+            tokio::time::timeout(
+                TIMEOUT,
+                subscribe_async_wait_handshake(&[endpoints::HASHBLOCK, "tcp://localhost:18443"]),
+            )
+            .await
+            .map(|_| ())
+            .expect_err("an http server will not make a zmtp handshake");
+        });
 }

@@ -1,12 +1,22 @@
 use super::{new_socket_internal, recv_internal};
-use crate::{error::Result, message::Message, DATA_MAX_LEN};
+use crate::{error::Result, event::SocketEvent, message::Message, EventMessage, DATA_MAX_LEN};
 use async_zmq::{Stream, StreamExt, Subscribe};
 use core::{
-    pin::Pin,
+    future::Future,
+    mem,
+    pin::{pin, Pin},
     slice,
-    task::{Context as AsyncContext, Poll},
+    task::{Context as AsyncContext, Poll, Waker},
+    time::Duration,
 };
-use futures_util::stream::FusedStream;
+use futures_util::{
+    future::{select, Either},
+    stream::FusedStream,
+};
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+};
 
 /// Stream that asynchronously produces [`Message`]s using a ZMQ subscriber.
 pub struct MessageStream {
@@ -48,6 +58,98 @@ impl Stream for MessageStream {
 impl FusedStream for MessageStream {
     fn is_terminated(&self) -> bool {
         false
+    }
+}
+
+// TODO move, name
+pub enum SocketMessage {
+    Message(Message),
+    Event(EventMessage),
+}
+
+// The generic type params don't matter as this will only be used for receiving
+type Pair = async_zmq::Pair<std::vec::IntoIter<&'static [u8]>, &'static [u8]>;
+
+// TODO name?
+pub struct SocketMessageStream {
+    messages: MessageStream,
+    monitor: Pair,
+}
+
+impl SocketMessageStream {
+    fn new(messages: MessageStream, monitor: Pair) -> Self {
+        Self { messages, monitor }
+    }
+}
+
+impl Stream for SocketMessageStream {
+    type Item = Result<SocketMessage>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
+        match self.monitor.poll_next_unpin(cx) {
+            Poll::Ready(msg) => {
+                // TODO properly handle errors (review uses of unwrap, expect, unreachable)
+                return Poll::Ready(Some(Ok(SocketMessage::Event(EventMessage::parse_from(
+                    msg.unwrap()?,
+                )))));
+            }
+            Poll::Pending => {}
+        }
+
+        self.messages
+            .poll_next_unpin(cx)
+            .map(|opt| opt.map(|res| res.map(SocketMessage::Message)))
+    }
+}
+
+impl FusedStream for SocketMessageStream {
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
+// TODO name, disconnect on failure?
+pub struct FiniteMessageStream {
+    inner: Option<SocketMessageStream>,
+}
+
+impl FiniteMessageStream {
+    pub fn new(inner: SocketMessageStream) -> Self {
+        Self { inner: Some(inner) }
+    }
+}
+
+impl Stream for FiniteMessageStream {
+    type Item = Result<Message>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
+        if let Some(inner) = &mut self.inner {
+            loop {
+                match inner.poll_next_unpin(cx) {
+                    Poll::Ready(opt) => match opt.unwrap()? {
+                        SocketMessage::Message(msg) => return Poll::Ready(Some(Ok(msg))),
+                        SocketMessage::Event(EventMessage { event, .. }) => {
+                            if let SocketEvent::Disconnected { .. } = event {
+                                // drop to disconnect
+                                self.inner = None;
+                                return Poll::Ready(None);
+                            } else {
+                                // only here it loops
+                            }
+                        }
+                    },
+                    Poll::Pending => return Poll::Pending,
+                }
+            }
+        } else {
+            Poll::Ready(None)
+        }
+    }
+}
+
+impl FusedStream for FiniteMessageStream {
+    fn is_terminated(&self) -> bool {
+        self.inner.is_none()
     }
 }
 
@@ -116,4 +218,137 @@ pub fn subscribe_async(endpoints: &[&str]) -> Result<MessageStream> {
     let (_context, socket) = new_socket_internal(endpoints)?;
 
     Ok(MessageStream::new(socket.into()))
+}
+
+// TODO split up this file?, these type of functions for receiver and blocking?
+// TODO doc (also other functions, structs, etc)
+pub fn subscribe_async_monitor(endpoints: &[&str]) -> Result<SocketMessageStream> {
+    let (context, socket) = new_socket_internal(endpoints)?;
+
+    socket.monitor("inproc://monitor", zmq::SocketEvent::ALL as i32)?;
+
+    let monitor = context.socket(zmq::PAIR)?;
+    monitor.connect("inproc://monitor")?;
+
+    Ok(SocketMessageStream::new(
+        MessageStream::new(socket.into()),
+        monitor.into(),
+    ))
+}
+
+// TODO have some way to extract connecting to which endpoints failed, now just a (unit) error is returned (by tokio::time::timeout)
+
+// pub struct SubscribeWaitHandshakeFuture {
+//     stream: Option<SocketMessageStream>,
+//     connecting: usize,
+//     next_message: Next<'static, Pair>,
+// }
+
+// impl Future for SubscribeWaitHandshakeFuture {
+//     type Output = Result<FiniteMessageStream>;
+
+//     fn poll(self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Self::Output> {
+//         todo!();
+//     }
+// }
+
+// // TODO doc, test
+// /// returns a stream after a successful handshake, that stops returning messages when disconnected
+// pub fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<SubscribeWaitHandshakeFuture> {
+//     let mut stream = subscribe_async_monitor(endpoints)?;
+//     let mut connecting = endpoints.len();
+//     let next_message = stream.monitor.next();
+
+//     Ok(SubscribeWaitHandshakeFuture {
+//         stream: Some(stream),
+//         connecting,
+//         next_message,
+//     })
+// }
+
+// TODO doc, test
+/// returns a stream after a successful handshake, that stops returning messages when disconnected.
+/// this should be used with the timeout function of your async runtime, this function will wait
+/// indefinitely. to runtime independently return after some timeout, a second thread is needed
+/// which is inefficient
+pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<FiniteMessageStream> {
+    let mut stream = subscribe_async_monitor(endpoints)?;
+    let mut connecting = endpoints.len();
+
+    if connecting == 0 {
+        return Ok(FiniteMessageStream::new(stream));
+    }
+
+    loop {
+        // TODO only decode first frame, the second frame (source address) is unused here but a String is allocated for it
+        match EventMessage::parse_from(stream.monitor.next().await.unwrap()?).event {
+            SocketEvent::HandshakeSucceeded => {
+                connecting -= 1;
+            }
+            SocketEvent::Disconnected { .. } => {
+                connecting += 1;
+            }
+            _ => {
+                continue;
+            }
+        }
+        if connecting == 0 {
+            return Ok(FiniteMessageStream::new(stream));
+        }
+    }
+}
+
+// TODO doc, is this inefficient function even useful?, test
+pub async fn subscribe_async_wait_handshake_timeout(
+    endpoints: &[&str],
+    timeout: Duration,
+) -> Option<Result<FiniteMessageStream>> {
+    let subscribe = subscribe_async_wait_handshake(endpoints);
+    let timeout = sleep(timeout);
+
+    match select(pin!(subscribe), timeout).await {
+        Either::Left((res, _)) => Some(res),
+        Either::Right(_) => None,
+    }
+}
+
+fn sleep(dur: Duration) -> Sleep {
+    let state = Arc::new(Mutex::new(SleepReadyState::Pending));
+    {
+        let state = state.clone();
+        thread::spawn(move || {
+            thread::sleep(dur);
+            let state = {
+                let mut g = state.lock().unwrap();
+                mem::replace(&mut *g, SleepReadyState::Done)
+            };
+            if let SleepReadyState::PendingPolled(waker) = state {
+                waker.wake();
+            }
+        });
+    }
+
+    Sleep(state)
+}
+
+enum SleepReadyState {
+    Pending,
+    PendingPolled(Waker),
+    Done,
+}
+
+struct Sleep(Arc<Mutex<SleepReadyState>>);
+
+impl Future for Sleep {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Self::Output> {
+        let mut g = self.0.lock().unwrap();
+        if let SleepReadyState::Done = *g {
+            Poll::Ready(())
+        } else {
+            *g = SleepReadyState::PendingPolled(cx.waker().clone());
+            Poll::Pending
+        }
+    }
 }
