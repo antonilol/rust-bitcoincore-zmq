@@ -1,3 +1,5 @@
+use super::MonitorMessageError;
+
 /// Convenience trait to be able to use `from_raw` and `to_raw` on any value that either defines it
 /// or is a `u32`. It doesn't matter that others don't implement this trait, rustc is smart enough
 /// to find that out.
@@ -126,27 +128,17 @@ define_socket_event_enum! {
     HandshakeFailedAuth(error_code) = ZMQ_EVENT_HANDSHAKE_FAILED_AUTH,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EventMessage {
-    pub event: SocketEvent,
-    pub source_url: String,
-}
+impl SocketEvent {
+    pub fn parse_from(msg: &zmq::Message) -> Result<Self, MonitorMessageError> {
+        let bytes = &**msg;
 
-impl EventMessage {
-    pub fn parse_from(msg: Vec<zmq::Message>) -> Self {
-        // TODO properly handle errors (review uses of unwrap, expect, unreachable)
-        let [a, b] = &msg[..] else {
-            unreachable!("monitor message is always 2 frames")
-        };
-        let event: [u8; 6] = (**a)
+        let event: [u8; 6] = bytes
             .try_into()
-            .expect("monitor message's first frame is always 6 bytes");
+            .map_err(|_| MonitorMessageError::InvalidEventFrameLength(bytes.len()))?;
         let event_type = u16::from_ne_bytes(event[0..2].try_into().unwrap());
         let data = u32::from_ne_bytes(event[2..6].try_into().unwrap());
-        let source_url: String = String::from_utf8_lossy(b).into();
-        EventMessage {
-            event: SocketEvent::from_raw(event_type, data).unwrap(),
-            source_url,
-        }
+
+        SocketEvent::from_raw(event_type, data)
+            .ok_or(MonitorMessageError::InvalidEventData(event_type, data))
     }
 }

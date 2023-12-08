@@ -4,7 +4,7 @@ mod util;
 use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{
     subscribe_async, subscribe_async_monitor, subscribe_async_wait_handshake, subscribe_blocking,
-    subscribe_receiver, EventMessage, Message, SocketEvent, SocketMessage,
+    subscribe_receiver, Message, MonitorMessage, SocketEvent, SocketMessage,
 };
 use core::{assert_eq, ops::ControlFlow, time::Duration};
 use futures::{executor::block_on, StreamExt};
@@ -145,7 +145,7 @@ fn test_monitor(rpc: &Client) {
                     println!("received real message: {msg}");
                     break;
                 }
-                SocketMessage::Event(EventMessage { event, source_url }) => {
+                SocketMessage::Event(MonitorMessage { event, source_url }) => {
                     // TODO remove debug printlns before merging
                     println!("received monitor message: {event:?} from {source_url}");
                     if event == SocketEvent::HandshakeSucceeded {

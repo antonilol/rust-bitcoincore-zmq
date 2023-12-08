@@ -1,5 +1,10 @@
 use super::{new_socket_internal, recv_internal};
-use crate::{error::Result, event::SocketEvent, message::Message, EventMessage, DATA_MAX_LEN};
+use crate::{
+    error::Result,
+    message::Message,
+    monitor::{event::SocketEvent, MonitorMessage, MonitorMessageError},
+    Error, DATA_MAX_LEN,
+};
 use async_zmq::{Stream, StreamExt, Subscribe};
 use core::{
     future::Future,
@@ -61,23 +66,39 @@ impl FusedStream for MessageStream {
     }
 }
 
-// TODO move, name
+// TODO move?
 pub enum SocketMessage {
     Message(Message),
-    Event(EventMessage),
+    Event(MonitorMessage),
+}
+
+enum Empty {}
+
+impl Iterator for Empty {
+    type Item = Empty;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+}
+
+impl From<Empty> for async_zmq::Message {
+    fn from(val: Empty) -> Self {
+        match val {}
+    }
 }
 
 // The generic type params don't matter as this will only be used for receiving
-type Pair = async_zmq::Pair<std::vec::IntoIter<&'static [u8]>, &'static [u8]>;
+// Better to use an empty type to not waste precious bytes
+type RecvOnlyPair = async_zmq::Pair<Empty, Empty>;
 
-// TODO name?
 pub struct SocketMessageStream {
     messages: MessageStream,
-    monitor: Pair,
+    monitor: RecvOnlyPair,
 }
 
 impl SocketMessageStream {
-    fn new(messages: MessageStream, monitor: Pair) -> Self {
+    fn new(messages: MessageStream, monitor: RecvOnlyPair) -> Self {
         Self { messages, monitor }
     }
 }
@@ -88,10 +109,9 @@ impl Stream for SocketMessageStream {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
         match self.monitor.poll_next_unpin(cx) {
             Poll::Ready(msg) => {
-                // TODO properly handle errors (review uses of unwrap, expect, unreachable)
-                return Poll::Ready(Some(Ok(SocketMessage::Event(EventMessage::parse_from(
-                    msg.unwrap()?,
-                )))));
+                return Poll::Ready(Some(Ok(SocketMessage::Event(MonitorMessage::parse_from(
+                    &msg.unwrap()?,
+                )?))));
             }
             Poll::Pending => {}
         }
@@ -108,18 +128,17 @@ impl FusedStream for SocketMessageStream {
     }
 }
 
-// TODO name, disconnect on failure?
-pub struct FiniteMessageStream {
+pub struct CheckedMessageStream {
     inner: Option<SocketMessageStream>,
 }
 
-impl FiniteMessageStream {
+impl CheckedMessageStream {
     pub fn new(inner: SocketMessageStream) -> Self {
         Self { inner: Some(inner) }
     }
 }
 
-impl Stream for FiniteMessageStream {
+impl Stream for CheckedMessageStream {
     type Item = Result<Message>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
@@ -128,11 +147,11 @@ impl Stream for FiniteMessageStream {
                 match inner.poll_next_unpin(cx) {
                     Poll::Ready(opt) => match opt.unwrap()? {
                         SocketMessage::Message(msg) => return Poll::Ready(Some(Ok(msg))),
-                        SocketMessage::Event(EventMessage { event, .. }) => {
+                        SocketMessage::Event(MonitorMessage { event, source_url }) => {
                             if let SocketEvent::Disconnected { .. } = event {
                                 // drop to disconnect
                                 self.inner = None;
-                                return Poll::Ready(None);
+                                return Poll::Ready(Some(Err(Error::Disconnected(source_url))));
                             } else {
                                 // only here it loops
                             }
@@ -147,7 +166,7 @@ impl Stream for FiniteMessageStream {
     }
 }
 
-impl FusedStream for FiniteMessageStream {
+impl FusedStream for CheckedMessageStream {
     fn is_terminated(&self) -> bool {
         self.inner.is_none()
     }
@@ -271,17 +290,20 @@ pub fn subscribe_async_monitor(endpoints: &[&str]) -> Result<SocketMessageStream
 /// this should be used with the timeout function of your async runtime, this function will wait
 /// indefinitely. to runtime independently return after some timeout, a second thread is needed
 /// which is inefficient
-pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<FiniteMessageStream> {
+pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<CheckedMessageStream> {
     let mut stream = subscribe_async_monitor(endpoints)?;
     let mut connecting = endpoints.len();
 
     if connecting == 0 {
-        return Ok(FiniteMessageStream::new(stream));
+        return Ok(CheckedMessageStream::new(stream));
     }
 
     loop {
-        // TODO only decode first frame, the second frame (source address) is unused here but a String is allocated for it
-        match EventMessage::parse_from(stream.monitor.next().await.unwrap()?).event {
+        let msg: &[zmq::Message] = &stream.monitor.next().await.unwrap()?;
+        let [event_message, _] = msg else {
+            return Err(MonitorMessageError::InvalidMutlipartLength(msg.len()).into());
+        };
+        match SocketEvent::parse_from(event_message)? {
             SocketEvent::HandshakeSucceeded => {
                 connecting -= 1;
             }
@@ -293,7 +315,7 @@ pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<Finite
             }
         }
         if connecting == 0 {
-            return Ok(FiniteMessageStream::new(stream));
+            return Ok(CheckedMessageStream::new(stream));
         }
     }
 }
@@ -302,13 +324,13 @@ pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<Finite
 pub async fn subscribe_async_wait_handshake_timeout(
     endpoints: &[&str],
     timeout: Duration,
-) -> Option<Result<FiniteMessageStream>> {
+) -> core::result::Result<Result<CheckedMessageStream>, ()> {
     let subscribe = subscribe_async_wait_handshake(endpoints);
     let timeout = sleep(timeout);
 
     match select(pin!(subscribe), timeout).await {
-        Either::Left((res, _)) => Some(res),
-        Either::Right(_) => None,
+        Either::Left((res, _)) => Ok(res),
+        Either::Right(_) => Err(()),
     }
 }
 
