@@ -7,7 +7,7 @@ use crate::{
 };
 use async_zmq::{Stream, StreamExt, Subscribe};
 use core::{
-    fmt::{Debug, Display},
+    fmt,
     future::Future,
     mem,
     pin::{pin, Pin},
@@ -326,14 +326,14 @@ pub async fn subscribe_async_wait_handshake_timeout(
 /// Contains no information, but does have a Error, Debug and Display impl.
 pub struct Timeout(());
 
-impl Debug for Timeout {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for Timeout {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Timeout").finish()
     }
 }
 
-impl Display for Timeout {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Timeout {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "connection timed out")
     }
 }

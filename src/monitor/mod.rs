@@ -1,8 +1,7 @@
-use std::fmt::Display;
-
-use event::SocketEvent;
-
 pub mod event;
+
+use core::fmt;
+use event::SocketEvent;
 
 /// A [`SocketEvent`] combined with its source (the url used when connecting).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,8 +32,8 @@ pub enum MonitorMessageError {
     InvalidEventData(u16, u32),
 }
 
-impl Display for MonitorMessageError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for MonitorMessageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidMutlipartLength(len) => {
                 write!(f, "invalid multipart message length: {len} (expected 2)")
