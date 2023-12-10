@@ -266,8 +266,6 @@ pub fn subscribe_async_monitor(endpoints: &[&str]) -> Result<SocketMessageStream
 
 // TODO have some way to extract connecting to which endpoints failed, now just a (unit) error is returned (by tokio::time::timeout)
 
-// TODO test
-
 /// Subscribes to multiple ZMQ endpoints and returns a stream that yields [`Message`]s after a
 /// connection has been established. When the other end disconnects, an error is returned by the
 /// stream and it terminates.
@@ -277,7 +275,9 @@ pub fn subscribe_async_monitor(endpoints: &[&str]) -> Result<SocketMessageStream
 /// runtime's timeout function. Currently, with the state of async Rust in December of 2023, it is
 /// not yet possible do this without creating an extra thread per timeout or depending on specific
 /// runtimes.
-pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<CheckedMessageStream> {
+pub async fn subscribe_async_wait_handshake(
+    endpoints: &[&str],
+) -> Result<impl Stream<Item = Result<Message>> + FusedStream> {
     let mut stream = subscribe_async_monitor(endpoints)?;
     let mut connecting = endpoints.len();
 
@@ -312,7 +312,7 @@ pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<Checke
 pub async fn subscribe_async_wait_handshake_timeout(
     endpoints: &[&str],
     timeout: Duration,
-) -> core::result::Result<Result<CheckedMessageStream>, Timeout> {
+) -> core::result::Result<Result<impl Stream<Item = Result<Message>> + FusedStream>, Timeout> {
     let subscribe = subscribe_async_wait_handshake(endpoints);
     let timeout = sleep(timeout);
 

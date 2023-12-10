@@ -19,9 +19,14 @@ futures-util = { version = "0.3.28", optional = true }
 zmq = "0.10.0"
 zmq-sys = "0.12.0"
 
-# dev dependencies can be used in examples
+# dependencies used in examples
 [dev-dependencies]
 futures = "0.3.28"
+tokio = { version = "1.35.0", features = ["time", "rt-multi-thread", "macros"] }
+
+[[example]]
+name = "subscribe_async_timeout"
+required-features = ["async"]
 
 [[example]]
 name = "subscribe_async"
