@@ -165,7 +165,7 @@ fn test_monitor(rpc: &Client) {
 }
 
 fn test_subscribe_timeout_tokio(_rpc: &Client) {
-    const TIMEOUT: Duration = Duration::from_millis(2000);
+    const TIMEOUT: Duration = Duration::from_millis(500);
 
     runtime::Builder::new_multi_thread()
         .enable_all()
@@ -199,7 +199,7 @@ fn test_subscribe_timeout_tokio(_rpc: &Client) {
 }
 
 fn test_subscribe_timeout_inefficient(_rpc: &Client) {
-    const TIMEOUT: Duration = Duration::from_millis(2000);
+    const TIMEOUT: Duration = Duration::from_millis(500);
 
     block_on(async {
         let _ = subscribe_async_wait_handshake_timeout(&[endpoints::HASHBLOCK], TIMEOUT)
