@@ -239,6 +239,8 @@ fn test_disconnect(rpc: &'static Client) {
                 .unwrap()
                 .unwrap();
 
+                tokio::time::sleep(Duration::from_millis(500)).await;
+
                 let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
 
                 match stream.next().await {
