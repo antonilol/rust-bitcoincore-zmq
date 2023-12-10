@@ -4,20 +4,24 @@ mod util;
 use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{
     subscribe_async, subscribe_async_monitor, subscribe_async_wait_handshake,
-    subscribe_async_wait_handshake_timeout, subscribe_blocking, subscribe_receiver, Message,
+    subscribe_async_wait_handshake_timeout, subscribe_blocking, subscribe_receiver, Error, Message,
     MonitorMessage, SocketEvent, SocketMessage,
 };
 use core::{assert_eq, ops::ControlFlow, time::Duration};
 use futures::{executor::block_on, StreamExt};
 use std::{sync::mpsc, thread};
-use util::{generate, recv_timeout_2, setup_rpc, sleep, RECV_TIMEOUT};
+use tokio::{
+    io::AsyncWriteExt,
+    net::{TcpListener, TcpStream},
+};
+use util::{generate, recv_timeout_2, setup_rpc, sleep, static_ref_heap, RECV_TIMEOUT};
 
 macro_rules! test {
     ($($function:ident,)*) => {
-        let rpc = setup_rpc();
+        let rpc = static_ref_heap(setup_rpc());
         $(
             println!(concat!("Running ", stringify!($function), "..."));
-            $function(&rpc);
+            $function(rpc);
             println!("ok");
         )*
     };
@@ -32,6 +36,7 @@ fn main() {
         test_monitor,
         test_subscribe_timeout_tokio,
         test_subscribe_timeout_inefficient,
+        test_disconnect,
     }
 }
 
@@ -213,4 +218,81 @@ fn test_subscribe_timeout_inefficient(_rpc: &Client) {
         .map(|_| ())
         .expect_err("an http server will not make a zmtp handshake");
     });
+}
+
+fn test_disconnect(rpc: &'static Client) {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+
+            let h = tokio::spawn(async move {
+                let mut stream = tokio::time::timeout(
+                    Duration::from_millis(2000),
+                    subscribe_async_wait_handshake(&["tcp://127.0.0.1:29999"]),
+                )
+                .await
+                .unwrap()
+                .unwrap();
+
+                let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
+
+                match stream.next().await {
+                    Some(Ok(Message::HashBlock(zmq_hash, _seq))) if rpc_hash == zmq_hash => {}
+                    other => panic!("unexpected response: {other:?}"),
+                }
+
+                // send the signal to close the proxy
+                tx.send(()).unwrap();
+
+                match stream.next().await {
+                    Some(Err(Error::Disconnected(endpoint)))
+                        if endpoint == "tcp://127.0.0.1:29999" => {}
+                    other => panic!("unexpected response: {other:?}"),
+                }
+
+                match stream.next().await {
+                    None => {}
+                    other => panic!("unexpected response: {other:?}"),
+                }
+            });
+
+            // proxy endpoints::HASHBLOCK to 127.0.0.1:29999 to simulate a disconnect
+            // stopping bitcoin core is not a good idea as other tests may follow this one
+            // taken from https://github.com/tokio-rs/tokio/discussions/3173, it is not perfect but ok for this test
+            let ss = TcpListener::bind("127.0.0.1:29999".parse::<std::net::SocketAddr>().unwrap())
+                .await
+                .unwrap();
+            let (cs, _) = ss.accept().await.unwrap();
+            // [6..] splits off "tcp://"
+            let g = TcpStream::connect(
+                endpoints::HASHBLOCK[6..]
+                    .parse::<std::net::SocketAddr>()
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+            let (mut gr, mut gw) = g.into_split();
+            let (mut csr, mut csw) = cs.into_split();
+            let h1 = tokio::spawn(async move {
+                let _ = tokio::io::copy(&mut gr, &mut csw).await;
+                let _ = csw.shutdown().await;
+            });
+            let h2 = tokio::spawn(async move {
+                let _ = tokio::io::copy(&mut csr, &mut gw).await;
+                let _ = gw.shutdown().await;
+            });
+
+            // wait for the signal
+            rx.recv().await.unwrap();
+
+            // close the proxy
+            h1.abort();
+            h2.abort();
+
+            // wait on other spawned tasks
+            h.await.unwrap();
+        });
 }

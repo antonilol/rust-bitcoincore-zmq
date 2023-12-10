@@ -136,7 +136,7 @@ pub mod subscribe_async_stream {
             cx: &mut AsyncContext<'_>,
         ) -> Poll<Option<Self::Item>> {
             self.zmq_stream.poll_next_unpin(cx).map(|opt| {
-                opt.map(|res| match res {
+                Some(match opt.unwrap() {
                     Ok(mp) => recv_internal(mp.iter(), &mut self.data_cache),
                     Err(err) => Err(err.into()),
                 })
@@ -240,7 +240,7 @@ pub mod subscribe_async_monitor_stream {
 
             self.messages
                 .poll_next_unpin(cx)
-                .map(|opt| opt.map(|res| res.map(SocketMessage::Message)))
+                .map(|opt| Some(opt.unwrap().map(SocketMessage::Message)))
         }
     }
 
