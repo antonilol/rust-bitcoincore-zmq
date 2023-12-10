@@ -4,6 +4,7 @@ use event::SocketEvent;
 
 pub mod event;
 
+/// A [`SocketEvent`] combined with its source (the url used when connecting).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MonitorMessage {
     pub event: SocketEvent,

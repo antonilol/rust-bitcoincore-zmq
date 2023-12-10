@@ -79,7 +79,8 @@ define_handshake_failure_enum! {
 }
 
 macro_rules! define_socket_event_enum {
-    ($($name:ident$(($value:ident $(: $type:ty)?))? = $zmq_sys_name:ident,)*) => {
+    (enum docs { $(#[$attr:meta])* } $($name:ident$(($value:ident $(: $type:ty)?))? = $zmq_sys_name:ident,)*) => {
+        $(#[$attr])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum SocketEvent {
             $(
@@ -111,6 +112,12 @@ macro_rules! define_socket_event_enum {
 }
 
 define_socket_event_enum! {
+    enum docs {
+        /// An event from one of the connected sockets. See the "SUPPORTED EVENTS" section in the
+        /// "zmq_socket_monitor" manual page (`man zmq_socket_monitor`) for the original
+        /// documentation.
+    }
+
     Connected(fd) = ZMQ_EVENT_CONNECTED,
     ConnectDelayed = ZMQ_EVENT_CONNECT_DELAYED,
     ConnectRetried(interval) = ZMQ_EVENT_CONNECT_RETRIED,

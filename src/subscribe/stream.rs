@@ -7,6 +7,7 @@ use crate::{
 };
 use async_zmq::{Stream, StreamExt, Subscribe};
 use core::{
+    fmt::{Debug, Display},
     future::Future,
     mem,
     pin::{pin, Pin},
@@ -66,7 +67,7 @@ impl FusedStream for MessageStream {
     }
 }
 
-// TODO move?
+/// A [`Message`] or a [`MonitorMessage`].
 pub enum SocketMessage {
     Message(Message),
     Event(MonitorMessage),
@@ -92,6 +93,9 @@ impl From<Empty> for async_zmq::Message {
 // Better to use an empty type to not waste precious bytes
 type RecvOnlyPair = async_zmq::Pair<Empty, Empty>;
 
+/// Stream like [`MessageStream`] that also yields [`MonitorMessage`]s but nothing more. See
+/// [`subscribe_async_wait_handshake`] for a function that uses monitor messages to wait on
+/// connection and error on disconnections.
 pub struct SocketMessageStream {
     messages: MessageStream,
     monitor: RecvOnlyPair,
@@ -128,6 +132,8 @@ impl FusedStream for SocketMessageStream {
     }
 }
 
+/// Stream like [`MessageStream`] that when disconnected, returns and error
+/// ([`SocketEvent::Disconnected`]) and terminates the stream.
 pub struct CheckedMessageStream {
     inner: Option<SocketMessageStream>,
 }
@@ -148,12 +154,15 @@ impl Stream for CheckedMessageStream {
                     Poll::Ready(opt) => match opt.unwrap()? {
                         SocketMessage::Message(msg) => return Poll::Ready(Some(Ok(msg))),
                         SocketMessage::Event(MonitorMessage { event, source_url }) => {
-                            if let SocketEvent::Disconnected { .. } = event {
-                                // drop to disconnect
-                                self.inner = None;
-                                return Poll::Ready(Some(Err(Error::Disconnected(source_url))));
-                            } else {
-                                // only here it loops
+                            match event {
+                                SocketEvent::Disconnected { .. } => {
+                                    // drop to disconnect
+                                    self.inner = None;
+                                    return Poll::Ready(Some(Err(Error::Disconnected(source_url))));
+                                }
+                                _ => {
+                                    // only here it loops
+                                }
                             }
                         }
                     },
@@ -239,8 +248,8 @@ pub fn subscribe_async(endpoints: &[&str]) -> Result<MessageStream> {
     Ok(MessageStream::new(socket.into()))
 }
 
-// TODO split up this file?, these type of functions for receiver and blocking?
-// TODO doc (also other functions, structs, etc)
+/// Subscribes to multiple ZMQ endpoints and returns a stream that yields [`Message`]s and events
+/// (see [`MonitorMessage`]).
 pub fn subscribe_async_monitor(endpoints: &[&str]) -> Result<SocketMessageStream> {
     let (context, socket) = new_socket_internal(endpoints)?;
 
@@ -257,39 +266,17 @@ pub fn subscribe_async_monitor(endpoints: &[&str]) -> Result<SocketMessageStream
 
 // TODO have some way to extract connecting to which endpoints failed, now just a (unit) error is returned (by tokio::time::timeout)
 
-// pub struct SubscribeWaitHandshakeFuture {
-//     stream: Option<SocketMessageStream>,
-//     connecting: usize,
-//     next_message: Next<'static, Pair>,
-// }
+// TODO test
 
-// impl Future for SubscribeWaitHandshakeFuture {
-//     type Output = Result<FiniteMessageStream>;
-
-//     fn poll(self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Self::Output> {
-//         todo!();
-//     }
-// }
-
-// // TODO doc, test
-// /// returns a stream after a successful handshake, that stops returning messages when disconnected
-// pub fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<SubscribeWaitHandshakeFuture> {
-//     let mut stream = subscribe_async_monitor(endpoints)?;
-//     let mut connecting = endpoints.len();
-//     let next_message = stream.monitor.next();
-
-//     Ok(SubscribeWaitHandshakeFuture {
-//         stream: Some(stream),
-//         connecting,
-//         next_message,
-//     })
-// }
-
-// TODO doc, test
-/// returns a stream after a successful handshake, that stops returning messages when disconnected.
-/// this should be used with the timeout function of your async runtime, this function will wait
-/// indefinitely. to runtime independently return after some timeout, a second thread is needed
-/// which is inefficient
+/// Subscribes to multiple ZMQ endpoints and returns a stream that yields [`Message`]s after a
+/// connection has been established. When the other end disconnects, an error is returned by the
+/// stream and it terminates.
+///
+/// NOTE: This method will wait indefinitely until a connection has been established, but this is
+/// often undesirable. This method should therefore be used in combination with your async
+/// runtime's timeout function. Currently, with the state of async Rust in December of 2023, it is
+/// not yet possible do this without creating an extra thread per timeout or depending on specific
+/// runtimes.
 pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<CheckedMessageStream> {
     let mut stream = subscribe_async_monitor(endpoints)?;
     let mut connecting = endpoints.len();
@@ -320,19 +307,38 @@ pub async fn subscribe_async_wait_handshake(endpoints: &[&str]) -> Result<Checke
     }
 }
 
-// TODO doc, is this inefficient function even useful?, test
+/// See [`subscribe_async_wait_handshake`]. This method implements the inefficient, but runtime
+/// independent approach.
 pub async fn subscribe_async_wait_handshake_timeout(
     endpoints: &[&str],
     timeout: Duration,
-) -> core::result::Result<Result<CheckedMessageStream>, ()> {
+) -> core::result::Result<Result<CheckedMessageStream>, Timeout> {
     let subscribe = subscribe_async_wait_handshake(endpoints);
     let timeout = sleep(timeout);
 
     match select(pin!(subscribe), timeout).await {
         Either::Left((res, _)) => Ok(res),
-        Either::Right(_) => Err(()),
+        Either::Right(_) => Err(Timeout(())),
     }
 }
+
+/// Error returned by [`subscribe_async_wait_handshake_timeout`] when the connection times out.
+/// Contains no information, but does have a Error, Debug and Display impl.
+pub struct Timeout(());
+
+impl Debug for Timeout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Timeout").finish()
+    }
+}
+
+impl Display for Timeout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "connection timed out")
+    }
+}
+
+impl std::error::Error for Timeout {}
 
 fn sleep(dur: Duration) -> Sleep {
     let state = Arc::new(Mutex::new(SleepReadyState::Pending));
