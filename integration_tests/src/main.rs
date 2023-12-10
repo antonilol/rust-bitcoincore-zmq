@@ -9,10 +9,12 @@ use bitcoincore_zmq::{
 };
 use core::{assert_eq, ops::ControlFlow, time::Duration};
 use futures::{executor::block_on, StreamExt};
-use std::{sync::mpsc, thread};
+use std::{net::SocketAddr, sync::mpsc, thread};
 use tokio::{
     io::AsyncWriteExt,
     net::{TcpListener, TcpStream},
+    runtime,
+    sync::mpsc::unbounded_channel,
 };
 use util::{generate, recv_timeout_2, setup_rpc, sleep, static_ref_heap, RECV_TIMEOUT};
 
@@ -165,7 +167,7 @@ fn test_monitor(rpc: &Client) {
 fn test_subscribe_timeout_tokio(_rpc: &Client) {
     const TIMEOUT: Duration = Duration::from_millis(2000);
 
-    tokio::runtime::Builder::new_multi_thread()
+    runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
@@ -221,12 +223,12 @@ fn test_subscribe_timeout_inefficient(_rpc: &Client) {
 }
 
 fn test_disconnect(rpc: &'static Client) {
-    tokio::runtime::Builder::new_multi_thread()
+    runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
         .block_on(async {
-            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+            let (tx, mut rx) = unbounded_channel();
 
             let h = tokio::spawn(async move {
                 let mut stream = tokio::time::timeout(
@@ -262,18 +264,14 @@ fn test_disconnect(rpc: &'static Client) {
             // proxy endpoints::HASHBLOCK to 127.0.0.1:29999 to simulate a disconnect
             // stopping bitcoin core is not a good idea as other tests may follow this one
             // taken from https://github.com/tokio-rs/tokio/discussions/3173, it is not perfect but ok for this test
-            let ss = TcpListener::bind("127.0.0.1:29999".parse::<std::net::SocketAddr>().unwrap())
+            let ss = TcpListener::bind("127.0.0.1:29999".parse::<SocketAddr>().unwrap())
                 .await
                 .unwrap();
             let (cs, _) = ss.accept().await.unwrap();
             // [6..] splits off "tcp://"
-            let g = TcpStream::connect(
-                endpoints::HASHBLOCK[6..]
-                    .parse::<std::net::SocketAddr>()
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
+            let g = TcpStream::connect(endpoints::HASHBLOCK[6..].parse::<SocketAddr>().unwrap())
+                .await
+                .unwrap();
             let (mut gr, mut gw) = g.into_split();
             let (mut csr, mut csw) = cs.into_split();
             let h1 = tokio::spawn(async move {
