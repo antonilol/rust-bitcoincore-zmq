@@ -24,7 +24,7 @@ async fn main() {
             panic!("subscribe error: {err}");
         }
         Err(_) => {
-            // Err(_), err from `timeout`, means that it timed out.
+            // Err(_), err from `timeout` means that it timed out.
             panic!("subscribe_async_wait_handshake timed out");
         }
     };

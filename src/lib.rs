@@ -19,9 +19,10 @@ pub use crate::{
 
 #[cfg(feature = "async")]
 pub use crate::subscribe::stream::{
-    subscribe_async, subscribe_async_monitor, subscribe_async_wait_handshake,
-    subscribe_async_wait_handshake_timeout, CheckedMessageStream, MessageStream, SocketMessage,
-    SocketMessageStream,
+    subscribe_async, subscribe_async_monitor, subscribe_async_monitor_stream,
+    subscribe_async_stream::{self, MessageStream},
+    subscribe_async_wait_handshake, subscribe_async_wait_handshake_stream,
+    subscribe_async_wait_handshake_timeout, SocketMessage,
 };
 
 #[allow(deprecated)]
