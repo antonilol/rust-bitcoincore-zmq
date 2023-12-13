@@ -288,12 +288,16 @@ pub mod subscribe_async_wait_handshake_stream {
 
     /// Stream returned by [`subscribe_async_wait_handshake`][super::subscribe_async_wait_handshake].
     pub struct MessageStream {
+        connecting: usize,
         inner: Option<subscribe_async_monitor_stream::MessageStream>,
     }
 
     impl MessageStream {
         pub fn new(inner: subscribe_async_monitor_stream::MessageStream) -> Self {
-            Self { inner: Some(inner) }
+            Self {
+                connecting: 0,
+                inner: Some(inner),
+            }
         }
 
         /// Returns a reference to the ZMQ socket used by this stream. To get the [`zmq::Socket`], use
@@ -317,19 +321,25 @@ pub mod subscribe_async_wait_handshake_stream {
             mut self: Pin<&mut Self>,
             cx: &mut AsyncContext<'_>,
         ) -> Poll<Option<Self::Item>> {
-            if let Some(inner) = &mut self.inner {
+            let this = &mut *self;
+            if let Some(inner) = &mut this.inner {
                 loop {
                     match inner.poll_next_unpin(cx) {
                         Poll::Ready(opt) => match opt.unwrap()? {
                             SocketMessage::Message(msg) => return Poll::Ready(Some(Ok(msg))),
                             SocketMessage::Event(MonitorMessage { event, source_url }) => {
+                                // println!("debug: event: {event:?} from {source_url}");
                                 match event {
                                     SocketEvent::Disconnected { .. } => {
+                                        this.connecting += 1;
                                         // drop to disconnect
-                                        self.inner = None;
+                                        this.inner = None;
                                         return Poll::Ready(Some(Err(Error::Disconnected(
                                             source_url,
                                         ))));
+                                    }
+                                    SocketEvent::HandshakeSucceeded => {
+                                        this.connecting -= 1;
                                     }
                                     _ => {
                                         // only here it loops
