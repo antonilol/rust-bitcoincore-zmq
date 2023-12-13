@@ -13,6 +13,10 @@ pub fn setup_rpc() -> Client {
     .expect("unable to connect to Bitcoin Core regtest RPC")
 }
 
+pub fn static_ref_heap<T>(val: T) -> &'static T {
+    Box::leak(Box::new(val))
+}
+
 fn get_cookie_path() -> String {
     env::var("BITCOIN_CORE_COOKIE_PATH").expect(
         "env var BITCOIN_CORE_COOKIE_PATH probably not set, \

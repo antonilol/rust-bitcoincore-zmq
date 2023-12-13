@@ -1,4 +1,7 @@
-use crate::message::{DATA_MAX_LEN, SEQUENCE_LEN, TOPIC_MAX_LEN};
+use crate::{
+    message::{DATA_MAX_LEN, SEQUENCE_LEN, TOPIC_MAX_LEN},
+    monitor::MonitorMessageError,
+};
 use bitcoin::consensus;
 use core::{cmp::min, fmt};
 
@@ -15,6 +18,8 @@ pub enum Error {
     Invalid256BitHashLength(usize),
     BitcoinDeserialization(consensus::encode::Error),
     Zmq(zmq::Error),
+    MonitorMessage(MonitorMessageError),
+    Disconnected(String),
 }
 
 impl Error {
@@ -69,6 +74,13 @@ impl From<consensus::encode::Error> for Error {
     }
 }
 
+impl From<MonitorMessageError> for Error {
+    #[inline]
+    fn from(value: MonitorMessageError) -> Self {
+        Self::MonitorMessage(value)
+    }
+}
+
 impl fmt::Display for Error {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -115,6 +127,8 @@ impl fmt::Display for Error {
                 write!(f, "bitcoin consensus deserialization error: {e}")
             }
             Self::Zmq(e) => write!(f, "ZMQ Error: {e}"),
+            Self::MonitorMessage(err) => write!(f, "unable to parse monitor message: {err}"),
+            Self::Disconnected(url) => write!(f, "disconnected from {url}"),
         }
     }
 }
@@ -125,13 +139,15 @@ impl std::error::Error for Error {
         Some(match self {
             Self::BitcoinDeserialization(e) => e,
             Self::Zmq(e) => e,
+            Self::MonitorMessage(e) => e,
             Self::InvalidMutlipartLength(_)
             | Self::InvalidTopic(_, _)
             | Self::InvalidDataLength(_)
             | Self::InvalidSequenceLength(_)
             | Self::InvalidSequenceMessageLength(_)
             | Self::InvalidSequenceMessageLabel(_)
-            | Self::Invalid256BitHashLength(_) => return None,
+            | Self::Invalid256BitHashLength(_)
+            | Self::Disconnected(_) => return None,
         })
     }
 }
