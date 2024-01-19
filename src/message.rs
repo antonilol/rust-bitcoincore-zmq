@@ -4,14 +4,13 @@ use crate::{
 };
 use bitcoin::{
     consensus::{deserialize, serialize},
-    constants::MAX_BLOCK_WEIGHT,
     hashes::Hash,
-    Block, BlockHash, Transaction, Txid,
+    Block, BlockHash, Transaction, Txid, Weight,
 };
 use core::{cmp::min, fmt};
 
 pub const TOPIC_MAX_LEN: usize = 9;
-pub const DATA_MAX_LEN: usize = MAX_BLOCK_WEIGHT as usize;
+pub const DATA_MAX_LEN: usize = Weight::MAX_BLOCK.to_wu() as usize;
 pub const SEQUENCE_LEN: usize = 4;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
