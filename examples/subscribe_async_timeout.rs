@@ -29,7 +29,9 @@ async fn main() {
         }
     };
 
-    // like in other examples, we have a stream we can get messages from
+    // Like in other examples, we have a stream we can get messages from, this one also produces
+    // events, for a detailed description on the events, see
+    // https://linux.die.net/man/3/zmq_socket_monitor.
     while let Some(msg) = stream.next().await {
         match msg {
             Ok(SocketMessage::Message(msg)) => println!("Received message: {msg}"),
@@ -43,6 +45,8 @@ async fn main() {
                         );
                     }
                     SocketEvent::HandshakeSucceeded => {
+                        // We can say "reconnected" because subscribe_async_wait_handshake waits on
+                        // the first connections of each endpoint before returning.
                         println!("reconnected to {}", event.source_url);
                     }
                     _ => {
