@@ -4,7 +4,7 @@ mod util;
 use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{
     subscribe_async, subscribe_async_monitor, subscribe_async_wait_handshake,
-    subscribe_async_wait_handshake_timeout, subscribe_blocking, subscribe_receiver, Error, Message,
+    subscribe_async_wait_handshake_timeout, subscribe_blocking, subscribe_receiver, Message,
     MonitorMessage, SocketEvent, SocketMessage,
 };
 use core::{assert_eq, ops::ControlFlow, time::Duration};
@@ -243,23 +243,36 @@ fn test_disconnect(rpc: &'static Client) {
 
                 let rpc_hash = generate(rpc, 1).expect("rpc call failed").0[0];
 
-                match stream.next().await {
-                    Some(Ok(Message::HashBlock(zmq_hash, _seq))) if rpc_hash == zmq_hash => {}
-                    other => panic!("unexpected response: {other:?}"),
+                loop {
+                    match stream.next().await {
+                        Some(Ok(SocketMessage::Message(Message::HashBlock(zmq_hash, _seq))))
+                            if rpc_hash == zmq_hash =>
+                        {
+                            break;
+                        }
+                        Some(Ok(SocketMessage::Event(_))) => {
+                            // ignore events
+                        }
+                        other => panic!("unexpected response: {other:?}"),
+                    }
                 }
 
                 // send the signal to close the proxy
                 tx.send(()).unwrap();
 
-                match stream.next().await {
-                    Some(Err(Error::Disconnected(endpoint)))
-                        if endpoint == "tcp://127.0.0.1:29999" => {}
-                    other => panic!("unexpected response: {other:?}"),
-                }
-
-                match stream.next().await {
-                    None => {}
-                    other => panic!("unexpected response: {other:?}"),
+                loop {
+                    match stream.next().await {
+                        Some(Ok(SocketMessage::Event(MonitorMessage {
+                            event: SocketEvent::Disconnected { .. },
+                            source_url,
+                        }))) if source_url == "tcp://127.0.0.1:29999" => {
+                            break;
+                        }
+                        Some(Ok(SocketMessage::Event(_))) => {
+                            // ignore other events
+                        }
+                        other => panic!("unexpected response: {other:?}"),
+                    }
                 }
             });
 

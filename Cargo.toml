@@ -27,6 +27,7 @@ tokio = { version = "1.35.0", features = ["time", "rt-multi-thread", "macros"] }
 [[example]]
 name = "subscribe_async_timeout"
 required-features = ["async"]
+doc-scrape-examples = true
 
 [[example]]
 name = "subscribe_async"
@@ -44,3 +45,4 @@ name = "subscribe_receiver"
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]

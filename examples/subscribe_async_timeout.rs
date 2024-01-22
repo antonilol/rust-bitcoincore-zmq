@@ -1,4 +1,4 @@
-use bitcoincore_zmq::subscribe_async_wait_handshake;
+use bitcoincore_zmq::{subscribe_async_wait_handshake, SocketEvent, SocketMessage};
 use core::time::Duration;
 use futures_util::StreamExt;
 use tokio::time::timeout;
@@ -30,13 +30,27 @@ async fn main() {
     };
 
     // like in other examples, we have a stream we can get messages from
-    // but this one is different in that it will terminate on disconnection, and return an error just before that
     while let Some(msg) = stream.next().await {
         match msg {
-            Ok(msg) => println!("Received message: {msg}"),
+            Ok(SocketMessage::Message(msg)) => println!("Received message: {msg}"),
+            Ok(SocketMessage::Event(event)) => {
+                println!("Received socket event: {event:?}");
+                match event.event {
+                    SocketEvent::Disconnected { .. } => {
+                        println!(
+                            "disconnected from {}, ZMQ automatically tries to reconnect",
+                            event.source_url
+                        );
+                    }
+                    SocketEvent::HandshakeSucceeded => {
+                        println!("reconnected to {}", event.source_url);
+                    }
+                    _ => {
+                        // ignore other events
+                    }
+                }
+            }
             Err(err) => println!("Error receiving message: {err}"),
         }
     }
-
-    println!("stream terminated");
 }
