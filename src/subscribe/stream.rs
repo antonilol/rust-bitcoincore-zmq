@@ -23,6 +23,7 @@ use std::{
 };
 
 /// A [`Message`] or a [`MonitorMessage`].
+#[derive(Debug, Clone)]
 pub enum SocketMessage {
     Message(Message),
     Event(MonitorMessage),
@@ -269,111 +270,27 @@ pub fn subscribe_async_monitor(
     ))
 }
 
-pub mod subscribe_async_wait_handshake_stream {
-    use super::{subscribe_async_monitor_stream, SocketMessage};
-    use crate::{
-        error::{Error, Result},
-        message::Message,
-        monitor::{event::SocketEvent, MonitorMessage},
-    };
-    use async_zmq::Subscribe;
-    use core::{
-        pin::Pin,
-        task::{Context as AsyncContext, Poll},
-    };
-    use futures_util::{
-        stream::{FusedStream, StreamExt},
-        Stream,
-    };
-
-    /// Stream returned by [`subscribe_async_wait_handshake`][super::subscribe_async_wait_handshake].
-    pub struct MessageStream {
-        inner: Option<subscribe_async_monitor_stream::MessageStream>,
-    }
-
-    impl MessageStream {
-        pub fn new(inner: subscribe_async_monitor_stream::MessageStream) -> Self {
-            Self { inner: Some(inner) }
-        }
-
-        /// Returns a reference to the ZMQ socket used by this stream. To get the [`zmq::Socket`], use
-        /// [`as_raw_socket`] on the result. This is useful to set socket options or use other
-        /// functions provided by [`zmq`] or [`async_zmq`].
-        ///
-        /// Returns [`None`] when the socket is not connected anymore.
-        ///
-        /// [`as_raw_socket`]: Subscribe::as_raw_socket
-        pub fn as_zmq_socket(&self) -> Option<&Subscribe> {
-            self.inner
-                .as_ref()
-                .map(subscribe_async_monitor_stream::MessageStream::as_zmq_socket)
-        }
-    }
-
-    impl Stream for MessageStream {
-        type Item = Result<Message>;
-
-        fn poll_next(
-            mut self: Pin<&mut Self>,
-            cx: &mut AsyncContext<'_>,
-        ) -> Poll<Option<Self::Item>> {
-            if let Some(inner) = &mut self.inner {
-                loop {
-                    match inner.poll_next_unpin(cx) {
-                        Poll::Ready(opt) => match opt.unwrap()? {
-                            SocketMessage::Message(msg) => return Poll::Ready(Some(Ok(msg))),
-                            SocketMessage::Event(MonitorMessage { event, source_url }) => {
-                                match event {
-                                    SocketEvent::Disconnected { .. } => {
-                                        // drop to disconnect
-                                        self.inner = None;
-                                        return Poll::Ready(Some(Err(Error::Disconnected(
-                                            source_url,
-                                        ))));
-                                    }
-                                    _ => {
-                                        // only here it loops
-                                    }
-                                }
-                            }
-                        },
-                        Poll::Pending => return Poll::Pending,
-                    }
-                }
-            } else {
-                Poll::Ready(None)
-            }
-        }
-    }
-
-    impl FusedStream for MessageStream {
-        fn is_terminated(&self) -> bool {
-            self.inner.is_none()
-        }
-    }
-}
-
 // TODO have some way to extract connecting to which endpoints failed, now just a (unit) error is returned (by tokio::time::timeout)
 
-/// Subscribes to multiple ZMQ endpoints and returns a stream that yields [`Message`]s after a
-/// connection has been established. When the other end disconnects, an error
-/// ([`SocketEvent::Disconnected`]) is returned by the stream and it terminates.
+/// Subscribes to multiple ZMQ endpoints and returns a stream that yields [`Message`]s and events
+/// (see [`MonitorMessage`]). This method will wait until a connection has been established to all
+/// endpoints.
 ///
-/// NOTE: This method will wait indefinitely until a connection has been established, but this is
+/// See examples/subscribe_async_timeout.rs for a usage example.
+///
+/// **NOTE:** This method will wait indefinitely until a connection has been established, but this is
 /// often undesirable. This method should therefore be used in combination with your async
 /// runtime's timeout function. Currently, with the state of async Rust in December of 2023, it is
 /// not yet possible do this without creating an extra thread per timeout or depending on specific
 /// runtimes.
 pub async fn subscribe_async_wait_handshake(
     endpoints: &[&str],
-) -> Result<subscribe_async_wait_handshake_stream::MessageStream> {
+) -> Result<subscribe_async_monitor_stream::MessageStream> {
     let mut stream = subscribe_async_monitor(endpoints)?;
     let mut connecting = endpoints.len();
 
     if connecting == 0 {
-        return Ok(subscribe_async_wait_handshake_stream::MessageStream::new(
-            stream,
-        ));
+        return Ok(stream);
     }
 
     loop {
@@ -393,9 +310,7 @@ pub async fn subscribe_async_wait_handshake(
             }
         }
         if connecting == 0 {
-            return Ok(subscribe_async_wait_handshake_stream::MessageStream::new(
-                stream,
-            ));
+            return Ok(stream);
         }
     }
 }
@@ -405,7 +320,7 @@ pub async fn subscribe_async_wait_handshake(
 pub async fn subscribe_async_wait_handshake_timeout(
     endpoints: &[&str],
     timeout: Duration,
-) -> core::result::Result<Result<subscribe_async_wait_handshake_stream::MessageStream>, Timeout> {
+) -> core::result::Result<Result<subscribe_async_monitor_stream::MessageStream>, Timeout> {
     let subscribe = subscribe_async_wait_handshake(endpoints);
     let timeout = sleep(timeout);
 
@@ -417,13 +332,8 @@ pub async fn subscribe_async_wait_handshake_timeout(
 
 /// Error returned by [`subscribe_async_wait_handshake_timeout`] when the connection times out.
 /// Contains no information, but does have a Error, Debug and Display impl.
+#[derive(Debug)]
 pub struct Timeout(());
-
-impl fmt::Debug for Timeout {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Timeout").finish()
-    }
-}
 
 impl fmt::Display for Timeout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

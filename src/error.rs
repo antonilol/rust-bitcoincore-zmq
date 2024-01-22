@@ -19,7 +19,6 @@ pub enum Error {
     BitcoinDeserialization(consensus::encode::Error),
     Zmq(zmq::Error),
     MonitorMessage(MonitorMessageError),
-    Disconnected(String),
 }
 
 impl Error {
@@ -128,7 +127,6 @@ impl fmt::Display for Error {
             }
             Self::Zmq(e) => write!(f, "ZMQ Error: {e}"),
             Self::MonitorMessage(err) => write!(f, "unable to parse monitor message: {err}"),
-            Self::Disconnected(url) => write!(f, "disconnected from {url}"),
         }
     }
 }
@@ -146,8 +144,7 @@ impl std::error::Error for Error {
             | Self::InvalidSequenceLength(_)
             | Self::InvalidSequenceMessageLength(_)
             | Self::InvalidSequenceMessageLabel(_)
-            | Self::Invalid256BitHashLength(_)
-            | Self::Disconnected(_) => return None,
+            | Self::Invalid256BitHashLength(_) => return None,
         })
     }
 }
