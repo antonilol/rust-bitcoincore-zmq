@@ -29,7 +29,13 @@ macro_rules! type_or_u32 {
 }
 
 macro_rules! define_handshake_failure_enum {
-    ($($name:ident = $zmq_sys_name:ident,)*) => {
+    (
+        pub enum HandshakeFailure {
+            $(
+                $name:ident = $zmq_sys_name:ident,
+            )*
+        }
+    ) => {
         #[repr(u32)]
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum HandshakeFailure {
@@ -56,30 +62,39 @@ macro_rules! define_handshake_failure_enum {
 }
 
 define_handshake_failure_enum! {
-    ZmtpUnspecified = ZMQ_PROTOCOL_ERROR_ZMTP_UNSPECIFIED,
-    ZmtpUnexpectedCommand = ZMQ_PROTOCOL_ERROR_ZMTP_UNEXPECTED_COMMAND,
-    ZmtpInvalidSequence = ZMQ_PROTOCOL_ERROR_ZMTP_INVALID_SEQUENCE,
-    ZmtpKeyExchange = ZMQ_PROTOCOL_ERROR_ZMTP_KEY_EXCHANGE,
-    ZmtpMalformedCommandUnspecified = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_UNSPECIFIED,
-    ZmtpMalformedCommandMessage = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_MESSAGE,
-    ZmtpMalformedCommandHello = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_HELLO,
-    ZmtpMalformedCommandInitiate = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_INITIATE,
-    ZmtpMalformedCommandError = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_ERROR,
-    ZmtpMalformedCommandReady = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_READY,
-    ZmtpMalformedCommandWelcome = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_WELCOME,
-    ZmtpInvalidMetadata = ZMQ_PROTOCOL_ERROR_ZMTP_INVALID_METADATA,
-    ZmtpCryptographic = ZMQ_PROTOCOL_ERROR_ZMTP_CRYPTOGRAPHIC,
-    ZmtpMechanismMismatch = ZMQ_PROTOCOL_ERROR_ZMTP_MECHANISM_MISMATCH,
-    ZapUnspecified = ZMQ_PROTOCOL_ERROR_ZAP_UNSPECIFIED,
-    ZapMalformedReply = ZMQ_PROTOCOL_ERROR_ZAP_MALFORMED_REPLY,
-    ZapBadRequestId = ZMQ_PROTOCOL_ERROR_ZAP_BAD_REQUEST_ID,
-    ZapBadVersion = ZMQ_PROTOCOL_ERROR_ZAP_BAD_VERSION,
-    ZapInvalidStatusCode = ZMQ_PROTOCOL_ERROR_ZAP_INVALID_STATUS_CODE,
-    ZapInvalidMetadata = ZMQ_PROTOCOL_ERROR_ZAP_INVALID_METADATA,
+    pub enum HandshakeFailure {
+        ZmtpUnspecified = ZMQ_PROTOCOL_ERROR_ZMTP_UNSPECIFIED,
+        ZmtpUnexpectedCommand = ZMQ_PROTOCOL_ERROR_ZMTP_UNEXPECTED_COMMAND,
+        ZmtpInvalidSequence = ZMQ_PROTOCOL_ERROR_ZMTP_INVALID_SEQUENCE,
+        ZmtpKeyExchange = ZMQ_PROTOCOL_ERROR_ZMTP_KEY_EXCHANGE,
+        ZmtpMalformedCommandUnspecified = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_UNSPECIFIED,
+        ZmtpMalformedCommandMessage = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_MESSAGE,
+        ZmtpMalformedCommandHello = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_HELLO,
+        ZmtpMalformedCommandInitiate = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_INITIATE,
+        ZmtpMalformedCommandError = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_ERROR,
+        ZmtpMalformedCommandReady = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_READY,
+        ZmtpMalformedCommandWelcome = ZMQ_PROTOCOL_ERROR_ZMTP_MALFORMED_COMMAND_WELCOME,
+        ZmtpInvalidMetadata = ZMQ_PROTOCOL_ERROR_ZMTP_INVALID_METADATA,
+        ZmtpCryptographic = ZMQ_PROTOCOL_ERROR_ZMTP_CRYPTOGRAPHIC,
+        ZmtpMechanismMismatch = ZMQ_PROTOCOL_ERROR_ZMTP_MECHANISM_MISMATCH,
+        ZapUnspecified = ZMQ_PROTOCOL_ERROR_ZAP_UNSPECIFIED,
+        ZapMalformedReply = ZMQ_PROTOCOL_ERROR_ZAP_MALFORMED_REPLY,
+        ZapBadRequestId = ZMQ_PROTOCOL_ERROR_ZAP_BAD_REQUEST_ID,
+        ZapBadVersion = ZMQ_PROTOCOL_ERROR_ZAP_BAD_VERSION,
+        ZapInvalidStatusCode = ZMQ_PROTOCOL_ERROR_ZAP_INVALID_STATUS_CODE,
+        ZapInvalidMetadata = ZMQ_PROTOCOL_ERROR_ZAP_INVALID_METADATA,
+    }
 }
 
 macro_rules! define_socket_event_enum {
-    (enum docs { $(#[$attr:meta])* } $($name:ident$(($value:ident $(: $type:ty)?))? = $zmq_sys_name:ident,)*) => {
+    (
+        $(#[$attr:meta])*
+        pub enum SocketEvent {
+            $(
+                $name:ident $(($value:ident $(: $type:ty)?))? = $zmq_sys_name:ident,
+            )*
+        }
+    ) => {
         $(#[$attr])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum SocketEvent {
@@ -112,27 +127,26 @@ macro_rules! define_socket_event_enum {
 }
 
 define_socket_event_enum! {
-    enum docs {
-        /// An event from one of the connected sockets. See the "SUPPORTED EVENTS" section in the
-        /// "zmq_socket_monitor" manual page (`man zmq_socket_monitor`) for the original
-        /// documentation.
+    /// An event from one of the connected sockets. See the "SUPPORTED EVENTS" section in the
+    /// "zmq_socket_monitor" manual page (`man zmq_socket_monitor`) for the original
+    /// documentation.
+    pub enum SocketEvent {
+        Connected(fd) = ZMQ_EVENT_CONNECTED,
+        ConnectDelayed = ZMQ_EVENT_CONNECT_DELAYED,
+        ConnectRetried(interval) = ZMQ_EVENT_CONNECT_RETRIED,
+        Listening(fd) = ZMQ_EVENT_LISTENING,
+        BindFailed(errno) = ZMQ_EVENT_BIND_FAILED,
+        Accepted(fd) = ZMQ_EVENT_ACCEPTED,
+        AcceptFailed(errno) = ZMQ_EVENT_ACCEPT_FAILED,
+        Closed(fd) = ZMQ_EVENT_CLOSED,
+        CloseFailed(errno) = ZMQ_EVENT_CLOSE_FAILED,
+        Disconnected(fd) = ZMQ_EVENT_DISCONNECTED,
+        MonitorStopped = ZMQ_EVENT_MONITOR_STOPPED,
+        HandshakeFailedNoDetail(fd) = ZMQ_EVENT_HANDSHAKE_FAILED_NO_DETAIL,
+        HandshakeSucceeded = ZMQ_EVENT_HANDSHAKE_SUCCEEDED,
+        HandshakeFailedProtocol(err: HandshakeFailure) = ZMQ_EVENT_HANDSHAKE_FAILED_PROTOCOL,
+        HandshakeFailedAuth(error_code) = ZMQ_EVENT_HANDSHAKE_FAILED_AUTH,
     }
-
-    Connected(fd) = ZMQ_EVENT_CONNECTED,
-    ConnectDelayed = ZMQ_EVENT_CONNECT_DELAYED,
-    ConnectRetried(interval) = ZMQ_EVENT_CONNECT_RETRIED,
-    Listening(fd) = ZMQ_EVENT_LISTENING,
-    BindFailed(errno) = ZMQ_EVENT_BIND_FAILED,
-    Accepted(fd) = ZMQ_EVENT_ACCEPTED,
-    AcceptFailed(errno) = ZMQ_EVENT_ACCEPT_FAILED,
-    Closed(fd) = ZMQ_EVENT_CLOSED,
-    CloseFailed(errno) = ZMQ_EVENT_CLOSE_FAILED,
-    Disconnected(fd) = ZMQ_EVENT_DISCONNECTED,
-    MonitorStopped = ZMQ_EVENT_MONITOR_STOPPED,
-    HandshakeFailedNoDetail(fd) = ZMQ_EVENT_HANDSHAKE_FAILED_NO_DETAIL,
-    HandshakeSucceeded = ZMQ_EVENT_HANDSHAKE_SUCCEEDED,
-    HandshakeFailedProtocol(err: HandshakeFailure) = ZMQ_EVENT_HANDSHAKE_FAILED_PROTOCOL,
-    HandshakeFailedAuth(error_code) = ZMQ_EVENT_HANDSHAKE_FAILED_AUTH,
 }
 
 impl SocketEvent {
