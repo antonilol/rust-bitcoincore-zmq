@@ -202,7 +202,7 @@ mod tests {
         let mut blockhash_bytes = blockhash.to_byte_array();
         blockhash_bytes.reverse();
 
-        let txid = genesis_block.txdata[0].txid();
+        let txid = genesis_block.txdata[0].compute_txid();
         let mut txid_bytes = txid.to_byte_array();
         txid_bytes.reverse();
 

@@ -69,7 +69,7 @@ fn test_hashtx(rpc: &Client) {
     match recv_timeout_2(&receiver) {
         (Message::Tx(tx, _), Message::HashTx(txid, _))
         | (Message::HashTx(txid, _), Message::Tx(tx, _)) => {
-            assert_eq!(tx.txid(), txid);
+            assert_eq!(tx.compute_txid(), txid);
         }
         (msg1, msg2) => {
             panic!("invalid messages received: ({msg1}, {msg2})");

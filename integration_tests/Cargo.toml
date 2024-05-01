@@ -4,8 +4,8 @@ version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-bitcoin = "0.31.1"
-bitcoincore-rpc = "0.18.0"
+bitcoin = "0.32.0"
+bitcoincore-rpc = { git = "https://github.com/tcharding/rust-bitcoincore-rpc.git", rev = "2ce36cc6874d3bfe024740e237e39656ec893d53" }
 bitcoincore-zmq = { path = "..", features = ["async"] }
 futures = "0.3.28"
 tokio = { version = "1.35.0", features = ["full"] }
