@@ -40,7 +40,7 @@ Integration tests use the latest version of the 5 most recent major Bitcoin Core
 TODO:
 - This README
 - SequenceMessage itest
-- Easy addEventListener like functionality with help of the `getzmqnotifications` rpc (bitcoincore-rpc PR: [#295](https://github.com/rust-bitcoin/rust-bitcoincore-rpc/pull/295))
+- Easy addEventListener like functionality with help of the `getzmqnotifications` rpc
 - raw messages
 - zmq publisher
 - include source in message
