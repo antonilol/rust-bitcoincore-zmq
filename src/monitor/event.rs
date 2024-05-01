@@ -31,22 +31,20 @@ macro_rules! type_or_u32 {
 macro_rules! define_handshake_failure_enum {
     (
         $(#[$attr:meta])*
-        pub enum HandshakeFailure {
+        $vis:vis enum $enum_name:ident {
             $(
                 $name:ident = $zmq_sys_name:ident,
             )*
         }
     ) => {
         $(#[$attr])*
-        #[repr(u32)]
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        pub enum HandshakeFailure {
+        $vis enum $enum_name {
             $(
                 $name = zmq_sys::$zmq_sys_name,
             )*
         }
 
-        impl HandshakeFailure {
+        impl $enum_name {
             pub fn from_raw(data: u32) -> Option<Self> {
                 Some(match data {
                     $(
@@ -65,6 +63,8 @@ macro_rules! define_handshake_failure_enum {
 
 define_handshake_failure_enum! {
     /// Possible values for the ZMQ_EVENT_HANDSHAKE_FAILED_PROTOCOL socket event.
+    #[repr(u32)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum HandshakeFailure {
         ZmtpUnspecified = ZMQ_PROTOCOL_ERROR_ZMTP_UNSPECIFIED,
         ZmtpUnexpectedCommand = ZMQ_PROTOCOL_ERROR_ZMTP_UNEXPECTED_COMMAND,
@@ -92,22 +92,21 @@ define_handshake_failure_enum! {
 macro_rules! define_socket_event_enum {
     (
         $(#[$attr:meta])*
-        pub enum SocketEvent {
+        $vis:vis enum $enum_name:ident {
             $(
                 $name:ident $(($value:ident $(: $type:ty)?))? = $zmq_sys_name:ident,
             )*
         }
     ) => {
         $(#[$attr])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        pub enum SocketEvent {
+        $vis enum $enum_name {
             $(
                 $name $({ $value: type_or_u32!($($type)?) })?,
             )*
             Unknown { event: u16, data: u32 },
         }
 
-        impl SocketEvent {
+        impl $enum_name {
             pub fn from_raw(event: u16, data: u32) -> Option<Self> {
                 Some(match event as u32 {
                     $(
@@ -132,6 +131,7 @@ macro_rules! define_socket_event_enum {
 define_socket_event_enum! {
     /// An event from one of the connected sockets. See the "SUPPORTED EVENTS" section in the
     /// "zmq_socket_monitor" manual page (`man zmq_socket_monitor`) for the original documentation.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum SocketEvent {
         Connected(fd) = ZMQ_EVENT_CONNECTED,
         ConnectDelayed = ZMQ_EVENT_CONNECT_DELAYED,
