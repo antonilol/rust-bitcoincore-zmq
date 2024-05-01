@@ -16,9 +16,11 @@ jobs:
       matrix:
         bitcoin_core_version:
           [
-            "26.0",
-            "25.1",
+            "27.0",
+            "26.1",
+            "25.2",
             "24.2",
+            "23.2",
           ]
     steps:
     - uses: actions/checkout@v3
