@@ -124,7 +124,7 @@ mod tests {
     fn test_invalid_data_len() {
         const LEN: usize = 8 * 1024 * 1024;
         let megabytes = vec![0; LEN];
-        let multipart = vec![
+        let multipart = [
             zmq::Message::from("topic"),
             zmq::Message::from(megabytes),
             zmq::Message::from(&[0x00u8, 0x00, 0x00, 0x00] as &[u8]),
