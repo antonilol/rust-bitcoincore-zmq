@@ -181,7 +181,7 @@ impl fmt::Display for Message {
             Self::HashBlock(blockhash, seq) => write!(f, "HashBlock({blockhash}, sequence={seq})"),
             Self::HashTx(txid, seq) => write!(f, "HashTx({txid}, sequence={seq})"),
             Self::Block(block, seq) => write!(f, "Block({}, sequence={seq})", block.block_hash()),
-            Self::Tx(tx, seq) => write!(f, "Tx({}, sequence={seq})", tx.txid()),
+            Self::Tx(tx, seq) => write!(f, "Tx({}, sequence={seq})", tx.compute_txid()),
             Self::Sequence(sm, seq) => write!(f, "Sequence({sm}, sequence={seq})"),
         }
     }
@@ -198,7 +198,7 @@ mod tests {
 
         let tx = &genesis_block.txdata[0];
         let tx_bytes = serialize(tx);
-        let txid = tx.txid();
+        let txid = tx.compute_txid();
         let mut txid_bytes = txid.to_byte_array();
         txid_bytes.reverse();
 
@@ -241,7 +241,7 @@ mod tests {
     fn test_deserialize_hashtx() {
         let genesis_block = genesis_block(Network::Bitcoin);
 
-        let txid = genesis_block.txdata[0].txid();
+        let txid = genesis_block.txdata[0].compute_txid();
         let mut txid_bytes = txid.to_byte_array();
         txid_bytes.reverse();
 
