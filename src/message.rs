@@ -79,11 +79,11 @@ impl Message {
     #[inline]
     pub fn sequence(&self) -> u32 {
         match self {
-            Self::HashBlock(_, seq)
-            | Self::HashTx(_, seq)
-            | Self::Block(_, seq)
-            | Self::Tx(_, seq)
-            | Self::Sequence(_, seq) => *seq,
+            Self::HashBlock(_, sequence)
+            | Self::HashTx(_, sequence)
+            | Self::Block(_, sequence)
+            | Self::Tx(_, sequence)
+            | Self::Sequence(_, sequence) => *sequence,
         }
     }
 
@@ -98,22 +98,22 @@ impl Message {
 
     #[inline]
     pub fn from_fixed_size_multipart<T: AsRef<[u8]>>(mp: &[T; 3]) -> Result<Self> {
-        let [topic, data, seq] = mp;
+        let [topic, data, sequence] = mp;
 
         let topic = topic.as_ref();
         let data = data.as_ref();
-        let seq = seq.as_ref();
+        let sequence = sequence.as_ref();
 
-        let seq = seq
+        let sequence = sequence
             .try_into()
-            .map_err(|_| Error::InvalidSequenceLength(seq.len()))?;
+            .map_err(|_| Error::InvalidSequenceLength(sequence.len()))?;
 
-        Self::from_parts(topic, data, seq)
+        Self::from_parts(topic, data, sequence)
     }
 
     #[inline]
-    pub fn from_parts(topic: &[u8], data: &[u8], seq: [u8; 4]) -> Result<Self> {
-        let seq = u32::from_le_bytes(seq);
+    pub fn from_parts(topic: &[u8], data: &[u8], sequence: [u8; 4]) -> Result<Self> {
+        let sequence = u32::from_le_bytes(sequence);
 
         Ok(match topic {
             b"hashblock" | b"hashtx" => {
@@ -123,13 +123,13 @@ impl Message {
                 data.reverse();
 
                 match topic {
-                    b"hashblock" => Self::HashBlock(BlockHash::from_byte_array(data), seq),
-                    _ /* b"hashtx" */ => Self::HashTx(Txid::from_byte_array(data), seq),
+                    b"hashblock" => Self::HashBlock(BlockHash::from_byte_array(data), sequence),
+                    _ /* b"hashtx" */ => Self::HashTx(Txid::from_byte_array(data), sequence),
                 }
             }
-            b"rawblock" => Self::Block(deserialize(data)?, seq),
-            b"rawtx" => Self::Tx(deserialize(data)?, seq),
-            b"sequence" => Self::Sequence(SequenceMessage::from_byte_slice(data)?, seq),
+            b"rawblock" => Self::Block(deserialize(data)?, sequence),
+            b"rawtx" => Self::Tx(deserialize(data)?, sequence),
+            b"sequence" => Self::Sequence(SequenceMessage::from_byte_slice(data)?, sequence),
             _ => {
                 let mut buf = [0; TOPIC_MAX_LEN];
 
@@ -178,11 +178,15 @@ impl fmt::Display for Message {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::HashBlock(blockhash, seq) => write!(f, "HashBlock({blockhash}, sequence={seq})"),
-            Self::HashTx(txid, seq) => write!(f, "HashTx({txid}, sequence={seq})"),
-            Self::Block(block, seq) => write!(f, "Block({}, sequence={seq})", block.block_hash()),
-            Self::Tx(tx, seq) => write!(f, "Tx({}, sequence={seq})", tx.compute_txid()),
-            Self::Sequence(sm, seq) => write!(f, "Sequence({sm}, sequence={seq})"),
+            Self::HashBlock(blockhash, sequence) => {
+                write!(f, "HashBlock({blockhash}, sequence={sequence})")
+            }
+            Self::HashTx(txid, sequence) => write!(f, "HashTx({txid}, sequence={sequence})"),
+            Self::Block(block, sequence) => {
+                write!(f, "Block({}, sequence={sequence})", block.block_hash())
+            }
+            Self::Tx(tx, sequence) => write!(f, "Tx({}, sequence={sequence})", tx.compute_txid()),
+            Self::Sequence(sm, sequence) => write!(f, "Sequence({sm}, sequence={sequence})"),
         }
     }
 }

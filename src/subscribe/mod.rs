@@ -26,7 +26,7 @@ pub(super) fn new_socket_internal(endpoints: &[&str]) -> Result<(Context, Socket
 
 pub(super) fn recv_internal_socket(
     socket: &Socket,
-    data: &mut [u8; DATA_MAX_LEN],
+    tmp_buffer: &mut [u8; DATA_MAX_LEN],
 ) -> Result<Message> {
     let mut topic = [0u8; TOPIC_MAX_LEN];
     let mut sequence = [0u8; SEQUENCE_LEN];
@@ -40,8 +40,8 @@ pub(super) fn recv_internal_socket(
         return Err(Error::InvalidMutlipartLength(1));
     }
 
-    let data_len = socket.recv_into(data, 0)?;
-    let data = data
+    let data_len = socket.recv_into(tmp_buffer, 0)?;
+    let data = tmp_buffer
         .get(0..data_len)
         .ok_or(Error::InvalidDataLength(data_len))?;
 
@@ -75,22 +75,22 @@ pub(super) fn recv_internal_socket(
 pub(super) fn message_from_multipart_zmq_message(messages: &[zmq::Message]) -> Result<Message> {
     // zmq::Message doesn't implement AsRef<[u8]>
 
-    let [topic, data, seq]: &[zmq::Message; 3] = messages
+    let [topic, data, sequence]: &[zmq::Message; 3] = messages
         .try_into()
         .map_err(|_| Error::InvalidMutlipartLength(messages.len()))?;
 
-    Message::from_fixed_size_multipart::<&[u8]>(&[topic, data, seq])
+    Message::from_fixed_size_multipart::<&[u8]>(&[topic, data, sequence])
 }
 
 pub(super) fn subscribe_internal<F, B>(socket: Socket, callback: F) -> ControlFlow<B, Infallible>
 where
     F: Fn(Result<Message>) -> ControlFlow<B>,
 {
-    let mut data: Box<[u8; DATA_MAX_LEN]> =
+    let mut buf: Box<[u8; DATA_MAX_LEN]> =
         vec![0; DATA_MAX_LEN].into_boxed_slice().try_into().unwrap();
 
     loop {
-        let msg = recv_internal_socket(&socket, &mut data);
+        let msg = recv_internal_socket(&socket, &mut buf);
 
         callback(msg)?;
     }

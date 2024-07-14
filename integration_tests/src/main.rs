@@ -245,9 +245,10 @@ fn test_disconnect(rpc: &'static Client) {
 
                 loop {
                     match stream.next().await {
-                        Some(Ok(SocketMessage::Message(Message::HashBlock(zmq_hash, _seq))))
-                            if rpc_hash == zmq_hash =>
-                        {
+                        Some(Ok(SocketMessage::Message(Message::HashBlock(
+                            zmq_hash,
+                            _sequence,
+                        )))) if rpc_hash == zmq_hash => {
                             break;
                         }
                         Some(Ok(SocketMessage::Event(_))) => {
