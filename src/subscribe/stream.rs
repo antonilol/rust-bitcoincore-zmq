@@ -90,11 +90,7 @@ pub fn subscribe_single_async(endpoint: &str) -> Result<subscribe_async_stream::
 }
 
 pub mod subscribe_async_stream {
-    use crate::{
-        error::Result,
-        message::{Message, DATA_MAX_LEN},
-        subscribe::recv_internal,
-    };
+    use crate::{error::Result, message::Message, subscribe::message_from_multipart_zmq_message};
     use async_zmq::Subscribe;
     use core::{
         pin::Pin,
@@ -108,15 +104,11 @@ pub mod subscribe_async_stream {
     /// Stream returned by [`subscribe_async`][super::subscribe_async].
     pub struct MessageStream {
         zmq_stream: Subscribe,
-        data_cache: Box<[u8; DATA_MAX_LEN]>,
     }
 
     impl MessageStream {
         pub(super) fn new(zmq_stream: Subscribe) -> Self {
-            Self {
-                zmq_stream,
-                data_cache: vec![0; DATA_MAX_LEN].into_boxed_slice().try_into().unwrap(),
-            }
+            Self { zmq_stream }
         }
 
         /// Returns a reference to the ZMQ socket used by this stream. To get the [`zmq::Socket`], use
@@ -138,7 +130,7 @@ pub mod subscribe_async_stream {
         ) -> Poll<Option<Self::Item>> {
             self.zmq_stream.poll_next_unpin(cx).map(|opt| {
                 Some(match opt.unwrap() {
-                    Ok(mp) => recv_internal(mp.iter(), &mut self.data_cache),
+                    Ok(mp) => message_from_multipart_zmq_message(&mp),
                     Err(err) => Err(err.into()),
                 })
             })
