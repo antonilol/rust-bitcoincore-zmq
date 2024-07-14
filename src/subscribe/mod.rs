@@ -32,18 +32,18 @@ pub(super) fn recv_internal_socket(
     let mut sequence = [0u8; SEQUENCE_LEN];
 
     let topic_len = socket.recv_into(&mut topic, 0)?;
-    if topic_len > TOPIC_MAX_LEN {
-        return Err(Error::InvalidTopic(topic_len, topic));
-    }
+    let topic = topic
+        .get(0..topic_len)
+        .ok_or(Error::InvalidTopic(topic_len, topic))?;
 
     if !socket.get_rcvmore()? {
         return Err(Error::InvalidMutlipartLength(1));
     }
 
     let data_len = socket.recv_into(data, 0)?;
-    if data_len > DATA_MAX_LEN {
-        return Err(Error::InvalidDataLength(data_len));
-    }
+    let data = data
+        .get(0..data_len)
+        .ok_or(Error::InvalidDataLength(data_len))?;
 
     if !socket.get_rcvmore()? {
         return Err(Error::InvalidMutlipartLength(2));
@@ -55,7 +55,7 @@ pub(super) fn recv_internal_socket(
     }
 
     if !socket.get_rcvmore()? {
-        return Message::from_parts(&topic[0..topic_len], &data[0..data_len], sequence);
+        return Message::from_parts(topic, data, sequence);
     }
 
     let mut len = 3;
