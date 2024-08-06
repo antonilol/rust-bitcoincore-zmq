@@ -124,7 +124,7 @@ fn test_hashblock_async(rpc: &Client) {
         block_on(async {
             tx.send(stream.next().await.unwrap()).unwrap();
             tx.send(stream.next().await.unwrap()).unwrap();
-        })
+        });
     });
 
     match recv_timeout_2(&rx) {

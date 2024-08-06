@@ -107,7 +107,7 @@ pub mod subscribe_async_stream {
     }
 
     impl MessageStream {
-        pub(super) fn new(zmq_stream: Subscribe) -> Self {
+        pub(super) const fn new(zmq_stream: Subscribe) -> Self {
             Self { zmq_stream }
         }
 
@@ -116,7 +116,7 @@ pub mod subscribe_async_stream {
         /// functions provided by [`zmq`] or [`async_zmq`].
         ///
         /// [`as_raw_socket`]: Subscribe::as_raw_socket
-        pub fn as_zmq_socket(&self) -> &Subscribe {
+        pub const fn as_zmq_socket(&self) -> &Subscribe {
             &self.zmq_stream
         }
     }
@@ -168,7 +168,7 @@ pub mod subscribe_async_monitor_stream {
     pub(super) enum Empty {}
 
     impl Iterator for Empty {
-        type Item = Empty;
+        type Item = Self;
 
         fn next(&mut self) -> Option<Self::Item> {
             None
@@ -192,7 +192,7 @@ pub mod subscribe_async_monitor_stream {
     }
 
     impl MessageStream {
-        pub(super) fn new(
+        pub(super) const fn new(
             messages: subscribe_async_stream::MessageStream,
             monitor: RecvOnlyPair,
         ) -> Self {
@@ -204,7 +204,7 @@ pub mod subscribe_async_monitor_stream {
         /// functions provided by [`zmq`] or [`async_zmq`].
         ///
         /// [`as_raw_socket`]: Subscribe::as_raw_socket
-        pub fn as_zmq_socket(&self) -> &Subscribe {
+        pub const fn as_zmq_socket(&self) -> &Subscribe {
             self.messages.as_zmq_socket()
         }
 
@@ -268,7 +268,7 @@ pub fn subscribe_async_monitor(
 /// (see [`MonitorMessage`]). This method will wait until a connection has been established to all
 /// endpoints.
 ///
-/// See examples/subscribe_async_timeout.rs for a usage example.
+/// See `examples/subscribe_async_timeout.rs` for a usage example.
 ///
 /// **NOTE:** This method will wait indefinitely until a connection has been established, but this is
 /// often undesirable. This method should therefore be used in combination with your async
@@ -367,7 +367,7 @@ impl Future for Sleep {
 
     fn poll(self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Self::Output> {
         let mut g = self.0.lock().unwrap();
-        if let SleepReadyState::Done = *g {
+        if matches!(*g, SleepReadyState::Done) {
             Poll::Ready(())
         } else {
             *g = SleepReadyState::PendingPolled(cx.waker().clone());

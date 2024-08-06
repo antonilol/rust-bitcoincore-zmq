@@ -45,7 +45,7 @@ macro_rules! define_handshake_failure_enum {
         }
 
         impl $enum_name {
-            pub fn from_raw(data: u32) -> Option<Self> {
+            pub const fn from_raw(data: u32) -> Option<Self> {
                 Some(match data {
                     $(
                         zmq_sys::$zmq_sys_name => Self::$name,
@@ -54,7 +54,7 @@ macro_rules! define_handshake_failure_enum {
                 })
             }
 
-            pub fn to_raw(self) -> u32 {
+            pub const fn to_raw(self) -> u32 {
                 self as u32
             }
         }
@@ -161,7 +161,7 @@ impl SocketEvent {
         let event_type = u16::from_ne_bytes(event[0..2].try_into().unwrap());
         let data = u32::from_ne_bytes(event[2..6].try_into().unwrap());
 
-        SocketEvent::from_raw(event_type, data)
+        Self::from_raw(event_type, data)
             .ok_or(MonitorMessageError::InvalidEventData(event_type, data))
     }
 }

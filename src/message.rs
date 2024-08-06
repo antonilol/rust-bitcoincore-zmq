@@ -49,12 +49,13 @@ impl Message {
     #[inline]
     pub fn serialize_data_to_vec(&self) -> Vec<u8> {
         match self {
-            Self::HashBlock(_, _) | Self::HashTx(_, _) => {
-                let mut arr = match self {
-                    Self::HashBlock(blockhash, _) => blockhash.to_byte_array(),
-                    Self::HashTx(txid, _) => txid.to_byte_array(),
-                    _ => unreachable!(),
-                };
+            Self::HashBlock(blockhash, _) => {
+                let mut arr = blockhash.to_byte_array();
+                arr.reverse();
+                arr.to_vec()
+            }
+            Self::HashTx(txid, _) => {
+                let mut arr = txid.to_byte_array();
                 arr.reverse();
                 arr.to_vec()
             }
@@ -77,7 +78,7 @@ impl Message {
     /// Returns the sequence of this [`Message`], a number that starts at 0 and goes up every time
     /// Bitcoin Core sends a ZMQ message per publisher.
     #[inline]
-    pub fn sequence(&self) -> u32 {
+    pub const fn sequence(&self) -> u32 {
         match self {
             Self::HashBlock(_, sequence)
             | Self::HashTx(_, sequence)

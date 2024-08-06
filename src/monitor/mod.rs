@@ -16,7 +16,7 @@ impl MonitorMessage {
             return Err(MonitorMessageError::InvalidMutlipartLength(msg.len()));
         };
 
-        Ok(MonitorMessage {
+        Ok(Self {
             event: SocketEvent::parse_from(event_message)?,
             source_url: String::from_utf8_lossy(url_message).into(),
         })

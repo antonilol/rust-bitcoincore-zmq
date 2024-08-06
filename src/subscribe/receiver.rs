@@ -6,14 +6,6 @@ use std::{
     thread,
 };
 
-fn break_on_err(is_err: bool) -> ControlFlow<()> {
-    if is_err {
-        ControlFlow::Break(())
-    } else {
-        ControlFlow::Continue(())
-    }
-}
-
 /// Subscribes to a single ZMQ endpoint and returns a [`Receiver`].
 #[inline]
 #[deprecated(
@@ -41,7 +33,12 @@ pub fn subscribe_receiver(endpoints: &[&str]) -> Result<Receiver<Result<Message>
 
     let (_context, socket) = new_socket_internal(endpoints)?;
 
-    thread::spawn(move || subscribe_internal(socket, |msg| break_on_err(tx.send(msg).is_err())));
+    thread::spawn(move || {
+        subscribe_internal(socket, |msg| match tx.send(msg) {
+            Err(_) => ControlFlow::Break(()),
+            Ok(()) => ControlFlow::Continue(()),
+        })
+    });
 
     Ok(rx)
 }

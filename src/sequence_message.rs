@@ -13,7 +13,7 @@ pub enum SequenceMessage {
 impl SequenceMessage {
     /// Returns the length of this [`SequenceMessage`] when serialized.
     #[inline]
-    pub fn raw_length(&self) -> usize {
+    pub const fn raw_length(&self) -> usize {
         match self {
             Self::BlockConnect { .. } | Self::BlockDisconnect { .. } => 33,
             Self::MempoolAcceptance { .. } | Self::MempoolRemoval { .. } => 41,
@@ -22,13 +22,13 @@ impl SequenceMessage {
 
     /// Returns the label of this [`SequenceMessage`] as a [`char`].
     #[inline]
-    pub fn label_char(&self) -> char {
+    pub const fn label_char(&self) -> char {
         self.label() as char
     }
 
     /// Returns the label of this [`SequenceMessage`] as a [`u8`].
     #[inline]
-    pub fn label(&self) -> u8 {
+    pub const fn label(&self) -> u8 {
         match self {
             Self::BlockConnect { .. } => b'C',
             Self::BlockDisconnect { .. } => b'D',
@@ -63,7 +63,7 @@ impl SequenceMessage {
     /// [`MempoolAcceptance`]: SequenceMessage::MempoolAcceptance
     /// [`MempoolRemoval`]: SequenceMessage::MempoolRemoval
     #[inline]
-    pub fn mempool_sequence(&self) -> Option<u64> {
+    pub const fn mempool_sequence(&self) -> Option<u64> {
         match self {
             Self::BlockConnect { .. } | Self::BlockDisconnect { .. } => None,
             Self::MempoolAcceptance {
@@ -167,18 +167,18 @@ impl fmt::Display for SequenceMessage {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SequenceMessage::BlockConnect { blockhash } => write!(f, "BlockConnect({blockhash})"),
-            SequenceMessage::BlockDisconnect { blockhash } => {
+            Self::BlockConnect { blockhash } => write!(f, "BlockConnect({blockhash})"),
+            Self::BlockDisconnect { blockhash } => {
                 write!(f, "BlockDisconnect({blockhash})")
             }
-            SequenceMessage::MempoolAcceptance {
+            Self::MempoolAcceptance {
                 txid,
                 mempool_sequence,
             } => write!(
                 f,
                 "MempoolAcceptance({txid}, mempool_sequence={mempool_sequence})"
             ),
-            SequenceMessage::MempoolRemoval {
+            Self::MempoolRemoval {
                 txid,
                 mempool_sequence,
             } => write!(
