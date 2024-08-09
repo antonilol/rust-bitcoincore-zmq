@@ -18,10 +18,22 @@ pub fn static_ref_heap<T>(val: T) -> &'static T {
 }
 
 fn get_cookie_path() -> String {
-    env::var("BITCOIN_CORE_COOKIE_PATH").expect(
-        "env var BITCOIN_CORE_COOKIE_PATH probably not set, \
-        make sure to run this with the 'test.sh' script to set Bitcoin Core up correctly",
-    )
+    const ENV_VAR: &str = "BITCOIN_CORE_COOKIE_PATH";
+
+    match env::var(ENV_VAR) {
+        Ok(value) => value,
+        Err(err) => {
+            if matches!(err, env::VarError::NotPresent) {
+                eprintln!("Environment variable \"{ENV_VAR}\" not set.");
+                eprintln!(
+                    "Make sure to run this with the \"test.sh\" \
+                     script to set Bitcoin Core up correctly."
+                );
+            }
+
+            panic!("Failed to read environment variable \"{ENV_VAR}\": {err}");
+        }
+    }
 }
 
 pub fn generate(
