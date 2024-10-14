@@ -29,7 +29,7 @@ For more examples, have a look in the [examples directory](examples).
 ### Testing
 
 Tests run on every push and pull request.
-Integration tests use the latest version of the 5 most recent major Bitcoin Core versions, see [integration_tests.yml](.github/workflows/integration_tests.yml#L19-L23).
+Integration tests use the latest minor version of the 5 most recent major Bitcoin Core versions, see [integration_tests.yml](.github/workflows/integration_tests.yml#L19-L23) for the version numbers.
 
 ### Useful resources
 
