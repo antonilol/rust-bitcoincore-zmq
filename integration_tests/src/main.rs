@@ -83,7 +83,7 @@ fn test_sub_blocking(rpc: &Client) {
     let (tx, rx) = mpsc::channel();
 
     let h = thread::spawn(move || {
-        subscribe_blocking(&[endpoints::HASHBLOCK], |msg| {
+        let ControlFlow::Break(()) = subscribe_blocking(&[endpoints::HASHBLOCK], |msg| {
             let msg = msg.expect("zmq message error");
 
             match msg {
