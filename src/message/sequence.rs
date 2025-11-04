@@ -1,6 +1,9 @@
 use crate::error::{Error, Result};
-use bitcoin::{hashes::Hash, BlockHash, Txid};
+
 use core::fmt;
+
+use bitcoin::hashes::Hash;
+use bitcoin::{BlockHash, Txid};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SequenceMessage {

@@ -1,25 +1,20 @@
 use super::new_socket_internal;
-use crate::{
-    error::Result,
-    message::Message,
-    monitor::{event::SocketEvent, MonitorMessage, MonitorMessageError},
-};
-use core::{
-    fmt,
-    future::Future,
-    mem,
-    pin::{pin, Pin},
-    task::{Context as AsyncContext, Poll, Waker},
-    time::Duration,
-};
-use futures_util::{
-    future::{select, Either},
-    stream::StreamExt,
-};
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
+use crate::error::Result;
+use crate::message::Message;
+use crate::monitor::event::SocketEvent;
+use crate::monitor::{MonitorMessage, MonitorMessageError};
+
+use core::fmt;
+use core::future::Future;
+use core::mem;
+use core::pin::{pin, Pin};
+use core::task::{Context as AsyncContext, Poll, Waker};
+use core::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::thread;
+
+use futures_util::future::{select, Either};
+use futures_util::stream::StreamExt;
 
 /// A [`Message`] or a [`MonitorMessage`].
 #[derive(Debug, Clone)]
@@ -29,16 +24,13 @@ pub enum SocketMessage {
 }
 
 pub mod subscribe_async_stream {
-    use crate::{error::Result, message::Message, subscribe::message_from_multipart_zmq_message};
+    use super::*;
+
+    use crate::subscribe::message_from_multipart_zmq_message;
+
     use async_zmq::Subscribe;
-    use core::{
-        pin::Pin,
-        task::{Context as AsyncContext, Poll},
-    };
-    use futures_util::{
-        stream::{FusedStream, StreamExt},
-        Stream,
-    };
+    use futures_util::stream::FusedStream;
+    use futures_util::Stream;
 
     /// Stream returned by [`subscribe_async`][super::subscribe_async].
     pub struct MessageStream {
@@ -91,17 +83,11 @@ pub fn subscribe_async(endpoints: &[&str]) -> Result<subscribe_async_stream::Mes
 }
 
 pub mod subscribe_async_monitor_stream {
-    use super::{subscribe_async_stream, SocketMessage};
-    use crate::{error::Result, monitor::MonitorMessage};
+    use super::*;
+
     use async_zmq::Subscribe;
-    use core::{
-        pin::Pin,
-        task::{Context as AsyncContext, Poll},
-    };
-    use futures_util::{
-        stream::{FusedStream, StreamExt},
-        Stream,
-    };
+    use futures_util::stream::FusedStream;
+    use futures_util::Stream;
     use zmq::Socket;
 
     pub(super) enum Empty {}

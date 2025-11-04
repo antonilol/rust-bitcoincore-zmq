@@ -1,10 +1,9 @@
 use super::{new_socket_internal, subscribe_internal};
 use crate::{error::Result, message::Message};
+
 use core::ops::ControlFlow;
-use std::{
-    sync::mpsc::{channel, Receiver},
-    thread,
-};
+use std::sync::mpsc::{channel, Receiver};
+use std::thread;
 
 /// Subscribes to multiple ZMQ endpoints and returns a [`Receiver`].
 #[inline]

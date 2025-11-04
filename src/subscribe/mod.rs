@@ -3,12 +3,12 @@ pub mod receiver;
 #[cfg(feature = "async")]
 pub mod stream;
 
-use crate::{
-    error::Result,
-    message::{Message, RawMessage, Topic},
-    Error,
-};
-use core::{convert::Infallible, ops::ControlFlow};
+use crate::error::{Error, Result};
+use crate::message::{Message, RawMessage, Topic};
+
+use core::convert::Infallible;
+use core::ops::ControlFlow;
+
 use zmq::{Context, Socket};
 
 pub(super) fn new_socket_internal(endpoints: &[&str]) -> Result<(Context, Socket)> {

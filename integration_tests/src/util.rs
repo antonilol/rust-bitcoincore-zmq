@@ -1,7 +1,11 @@
+use std::env;
+use std::fmt;
+use std::sync::mpsc::Receiver;
+use std::thread;
+use std::time::Duration;
+
 use bitcoin::{Address, BlockHash};
 use bitcoincore_rpc::{Auth, Client, RpcApi};
-use core::{fmt::Debug, time::Duration};
-use std::{env, sync::mpsc::Receiver, thread};
 
 pub const RECV_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -44,13 +48,13 @@ pub fn generate(
     Ok((rpc.generate_to_address(block_num, &addr)?, addr))
 }
 
-pub fn recv_timeout<T>(rx: &Receiver<Result<T, impl Debug>>) -> T {
+pub fn recv_timeout<T>(rx: &Receiver<Result<T, impl fmt::Debug>>) -> T {
     rx.recv_timeout(RECV_TIMEOUT)
         .expect("receiving failed")
         .expect("zmq message error")
 }
 
-pub fn recv_timeout_2<T>(rx: &Receiver<Result<T, impl Debug>>) -> (T, T) {
+pub fn recv_timeout_2<T>(rx: &Receiver<Result<T, impl fmt::Debug>>) -> (T, T) {
     (recv_timeout(rx), recv_timeout(rx))
 }
 

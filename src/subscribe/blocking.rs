@@ -1,6 +1,9 @@
 use super::{new_socket_internal, subscribe_internal};
-use crate::{error::Result, message::Message};
-use core::{convert::Infallible, ops::ControlFlow};
+use crate::error::Result;
+use crate::message::Message;
+
+use core::convert::Infallible;
+use core::ops::ControlFlow;
 
 /// Subscribes to multiple ZMQ endpoints and blocks the thread until [`ControlFlow::Break`] is
 /// returned by the callback.

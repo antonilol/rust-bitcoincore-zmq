@@ -1,9 +1,9 @@
-use crate::{
-    message::{UnknownTopicError, SEQUENCE_LEN},
-    monitor::MonitorMessageError,
-};
-use bitcoin::consensus;
+use crate::message::{UnknownTopicError, SEQUENCE_LEN};
+use crate::monitor::MonitorMessageError;
+
 use core::fmt;
+
+use bitcoin::consensus;
 
 pub type Result<T> = core::result::Result<T, Error>;
 

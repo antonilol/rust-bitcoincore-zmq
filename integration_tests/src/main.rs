@@ -1,22 +1,26 @@
 mod endpoints;
 mod util;
 
+use self::util::{generate, recv_timeout_2, setup_rpc, sleep, static_ref_heap, RECV_TIMEOUT};
+
+use std::net::SocketAddr;
+use std::ops::ControlFlow;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
+
 use bitcoincore_rpc::Client;
 use bitcoincore_zmq::{
     subscribe_async, subscribe_async_monitor, subscribe_async_wait_handshake,
     subscribe_async_wait_handshake_timeout, subscribe_blocking, subscribe_receiver, Message,
     MessageContent, MonitorMessage, SocketEvent, SocketMessage,
 };
-use core::{assert_eq, ops::ControlFlow, time::Duration};
-use futures::{executor::block_on, StreamExt};
-use std::{net::SocketAddr, sync::mpsc, thread};
-use tokio::{
-    io::AsyncWriteExt,
-    net::{TcpListener, TcpStream},
-    runtime,
-    sync::mpsc::unbounded_channel,
-};
-use util::{generate, recv_timeout_2, setup_rpc, sleep, static_ref_heap, RECV_TIMEOUT};
+use futures::executor::block_on;
+use futures::StreamExt;
+use tokio::io::AsyncWriteExt;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::runtime;
+use tokio::sync::mpsc::unbounded_channel;
 
 macro_rules! test {
     ($($function:ident,)*) => {
