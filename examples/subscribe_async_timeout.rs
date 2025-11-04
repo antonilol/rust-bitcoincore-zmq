@@ -1,5 +1,6 @@
-use bitcoincore_zmq::{subscribe_async_wait_handshake, SocketEvent, SocketMessage};
 use core::time::Duration;
+
+use bitcoincore_zmq::{subscribe_async_wait_handshake, SocketEvent, SocketMessage};
 use futures_util::StreamExt;
 use tokio::time::timeout;
 
