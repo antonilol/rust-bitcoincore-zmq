@@ -1,17 +1,16 @@
 use crate::{
-    message::{DATA_MAX_LEN, SEQUENCE_LEN, TOPIC_MAX_LEN},
+    message::{UnknownTopicError, SEQUENCE_LEN},
     monitor::MonitorMessageError,
 };
 use bitcoin::consensus;
-use core::{cmp::min, fmt};
+use core::fmt;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
     InvalidMutlipartLength(usize),
-    InvalidTopic(usize, [u8; TOPIC_MAX_LEN]),
-    InvalidDataLength(usize),
+    UnknownTopic(UnknownTopicError),
     InvalidSequenceLength(usize),
     InvalidSequenceMessageLength(usize),
     InvalidSequenceMessageLabel(u8),
@@ -19,20 +18,6 @@ pub enum Error {
     BitcoinDeserialization(consensus::encode::Error),
     Zmq(zmq::Error),
     MonitorMessage(MonitorMessageError),
-}
-
-impl Error {
-    /// Returns the (invalid) topic as a byte slice (as this might not always be valid UTF-8). If
-    /// this error is not an [`Error::InvalidTopic`], [`None`] is returned. The real length is also
-    /// returned, if this is higher that the length of the slice, the data was truncated to fit
-    /// directly in the object, instead of with a heap allocation.
-    pub fn invalid_topic_data(&self) -> Option<(&[u8], usize)> {
-        if let Self::InvalidTopic(len, buf) = self {
-            Some((&buf[..min(*len, buf.len())], *len))
-        } else {
-            None
-        }
-    }
 }
 
 impl From<zmq::Error> for Error {
@@ -80,6 +65,13 @@ impl From<MonitorMessageError> for Error {
     }
 }
 
+impl From<UnknownTopicError> for Error {
+    #[inline]
+    fn from(value: UnknownTopicError) -> Self {
+        Self::UnknownTopic(value)
+    }
+}
+
 impl fmt::Display for Error {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -87,20 +79,8 @@ impl fmt::Display for Error {
             Self::InvalidMutlipartLength(len) => {
                 write!(f, "invalid multipart message length: {len} (expected 3)")
             }
-            Self::InvalidTopic(len, topic) => {
-                write!(
-                    f,
-                    "invalid message topic '{}'{}",
-                    String::from_utf8_lossy(&topic[..min(*len, topic.len())]),
-                    if *len > TOPIC_MAX_LEN {
-                        " (truncated)"
-                    } else {
-                        ""
-                    }
-                )
-            }
-            Self::InvalidDataLength(len) => {
-                write!(f, "data too long ({len} > {DATA_MAX_LEN})")
+            Self::UnknownTopic(e) => {
+                write!(f, "{e}")
             }
             Self::InvalidSequenceLength(len) => {
                 write!(
@@ -135,12 +115,11 @@ impl std::error::Error for Error {
     #[inline]
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(match self {
+            Self::UnknownTopic(e) => e,
             Self::BitcoinDeserialization(e) => e,
             Self::Zmq(e) => e,
             Self::MonitorMessage(e) => e,
             Self::InvalidMutlipartLength(_)
-            | Self::InvalidTopic(_, _)
-            | Self::InvalidDataLength(_)
             | Self::InvalidSequenceLength(_)
             | Self::InvalidSequenceMessageLength(_)
             | Self::InvalidSequenceMessageLabel(_)

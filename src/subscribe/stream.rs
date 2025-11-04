@@ -9,13 +9,12 @@ use core::{
     future::Future,
     mem,
     pin::{pin, Pin},
-    slice,
     task::{Context as AsyncContext, Poll, Waker},
     time::Duration,
 };
 use futures_util::{
     future::{select, Either},
-    stream::{FusedStream, Stream, StreamExt},
+    stream::StreamExt,
 };
 use std::{
     sync::{Arc, Mutex},
@@ -27,66 +26,6 @@ use std::{
 pub enum SocketMessage {
     Message(Message),
     Event(MonitorMessage),
-}
-
-/// Stream that asynchronously produces [`Message`]s using multiple ZMQ subscribers. The ZMQ
-/// sockets are polled in a round-robin fashion.
-#[deprecated(
-    since = "1.3.2",
-    note = "This struct is only used by deprecated functions."
-)]
-pub struct MultiMessageStream(pub subscribe_async_stream::MessageStream);
-
-#[allow(deprecated)]
-impl MultiMessageStream {
-    /// Returns a reference to the separate `MessageStream`s this [`MultiMessageStream`] is made
-    /// of. This is useful to set socket options or use other functions provided by [`zmq`] or
-    /// [`async_zmq`]. (See `MessageStream::as_zmq_socket`)
-    pub fn as_streams(&self) -> &[subscribe_async_stream::MessageStream] {
-        slice::from_ref(&self.0)
-    }
-
-    /// Returns the separate `MessageStream`s this [`MultiMessageStream`] is made of. This is
-    /// useful to set socket options or use other functions provided by [`zmq`] or [`async_zmq`].
-    /// (See `MessageStream::as_zmq_socket`)
-    pub fn into_streams(self) -> Vec<subscribe_async_stream::MessageStream> {
-        vec![self.0]
-    }
-}
-
-#[allow(deprecated)]
-impl Stream for MultiMessageStream {
-    type Item = Result<Message>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
-        self.0.poll_next_unpin(cx)
-    }
-}
-
-#[allow(deprecated)]
-impl FusedStream for MultiMessageStream {
-    fn is_terminated(&self) -> bool {
-        false
-    }
-}
-
-/// Subscribes to multiple ZMQ endpoints and returns a [`MultiMessageStream`].
-#[deprecated(
-    since = "1.3.2",
-    note = "Use subscribe_async. This function has no performance benefit over subscribe_single_async anymore."
-)]
-#[allow(deprecated)]
-pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
-    subscribe_async(endpoints).map(MultiMessageStream)
-}
-
-/// Subscribes to a single ZMQ endpoint and returns a `MessageStream`.
-#[deprecated(
-    since = "1.3.2",
-    note = "Use subscribe_async. The name changed because there is no distinction made anymore between subscribing to 1 or more endpoints."
-)]
-pub fn subscribe_single_async(endpoint: &str) -> Result<subscribe_async_stream::MessageStream> {
-    subscribe_async(&[endpoint])
 }
 
 pub mod subscribe_async_stream {

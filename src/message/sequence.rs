@@ -2,7 +2,7 @@ use crate::error::{Error, Result};
 use bitcoin::{hashes::Hash, BlockHash, Txid};
 use core::fmt;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SequenceMessage {
     BlockConnect { blockhash: BlockHash },
     BlockDisconnect { blockhash: BlockHash },
@@ -21,6 +21,7 @@ impl SequenceMessage {
     }
 
     /// Returns the label of this [`SequenceMessage`] as a [`char`].
+    /// Convenience method for <code>msg.[label][Self::label]() as char</code>.
     #[inline]
     pub const fn label_char(&self) -> char {
         self.label() as char
@@ -80,14 +81,11 @@ impl SequenceMessage {
     pub fn from_byte_slice<T: AsRef<[u8]>>(bytes: T) -> Result<Self> {
         let bytes = bytes.as_ref();
 
-        if bytes.len() < 33 {
+        let Some(&[mut hash @ .., label]) = bytes.first_chunk::<33>() else {
             return Err(Error::InvalidSequenceMessageLength(bytes.len()));
-        }
-
-        let mut hash: [u8; 32] = bytes[0..32].try_into().unwrap();
+        };
         hash.reverse();
 
-        let label = bytes[32];
         Ok(match label {
             b'C' | b'D' => {
                 if bytes.len() != 33 {
@@ -124,14 +122,14 @@ impl SequenceMessage {
         let mut ret = Vec::with_capacity(self.raw_length());
 
         // blockhash or txid
-        ret.extend_from_slice(&self.inner_hash_as_bytes());
+        ret.extend(self.inner_hash_as_bytes());
 
         // label
         ret.push(self.label());
 
         // optional mempool sequence
         if let Some(mempool_sequence) = self.mempool_sequence() {
-            ret.extend_from_slice(&mempool_sequence.to_le_bytes());
+            ret.extend(mempool_sequence.to_le_bytes());
         }
 
         ret
