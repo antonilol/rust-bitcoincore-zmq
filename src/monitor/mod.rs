@@ -1,7 +1,8 @@
 pub mod event;
 
+use self::event::SocketEvent;
+
 use core::fmt;
-use event::SocketEvent;
 
 /// A [`SocketEvent`] combined with its source (the url used when connecting).
 #[derive(Debug, Clone, PartialEq, Eq)]

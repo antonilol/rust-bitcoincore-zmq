@@ -1,26 +1,20 @@
 use super::new_socket_internal;
-use crate::{
-    error::Result,
-    message::Message,
-    monitor::{event::SocketEvent, MonitorMessage, MonitorMessageError},
-};
-use core::{
-    fmt,
-    future::Future,
-    mem,
-    pin::{pin, Pin},
-    slice,
-    task::{Context as AsyncContext, Poll, Waker},
-    time::Duration,
-};
-use futures_util::{
-    future::{select, Either},
-    stream::{FusedStream, Stream, StreamExt},
-};
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
+use crate::error::Result;
+use crate::message::Message;
+use crate::monitor::event::SocketEvent;
+use crate::monitor::{MonitorMessage, MonitorMessageError};
+
+use core::fmt;
+use core::future::Future;
+use core::mem;
+use core::pin::{pin, Pin};
+use core::task::{Context as AsyncContext, Poll, Waker};
+use core::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::thread;
+
+use futures_util::future::{select, Either};
+use futures_util::stream::StreamExt;
 
 /// A [`Message`] or a [`MonitorMessage`].
 #[derive(Debug, Clone)]
@@ -29,77 +23,14 @@ pub enum SocketMessage {
     Event(MonitorMessage),
 }
 
-/// Stream that asynchronously produces [`Message`]s using multiple ZMQ subscribers. The ZMQ
-/// sockets are polled in a round-robin fashion.
-#[deprecated(
-    since = "1.3.2",
-    note = "This struct is only used by deprecated functions."
-)]
-pub struct MultiMessageStream(pub subscribe_async_stream::MessageStream);
-
-#[allow(deprecated)]
-impl MultiMessageStream {
-    /// Returns a reference to the separate `MessageStream`s this [`MultiMessageStream`] is made
-    /// of. This is useful to set socket options or use other functions provided by [`zmq`] or
-    /// [`async_zmq`]. (See `MessageStream::as_zmq_socket`)
-    pub fn as_streams(&self) -> &[subscribe_async_stream::MessageStream] {
-        slice::from_ref(&self.0)
-    }
-
-    /// Returns the separate `MessageStream`s this [`MultiMessageStream`] is made of. This is
-    /// useful to set socket options or use other functions provided by [`zmq`] or [`async_zmq`].
-    /// (See `MessageStream::as_zmq_socket`)
-    pub fn into_streams(self) -> Vec<subscribe_async_stream::MessageStream> {
-        vec![self.0]
-    }
-}
-
-#[allow(deprecated)]
-impl Stream for MultiMessageStream {
-    type Item = Result<Message>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut AsyncContext<'_>) -> Poll<Option<Self::Item>> {
-        self.0.poll_next_unpin(cx)
-    }
-}
-
-#[allow(deprecated)]
-impl FusedStream for MultiMessageStream {
-    fn is_terminated(&self) -> bool {
-        false
-    }
-}
-
-/// Subscribes to multiple ZMQ endpoints and returns a [`MultiMessageStream`].
-#[deprecated(
-    since = "1.3.2",
-    note = "Use subscribe_async. This function has no performance benefit over subscribe_single_async anymore."
-)]
-#[allow(deprecated)]
-pub fn subscribe_multi_async(endpoints: &[&str]) -> Result<MultiMessageStream> {
-    subscribe_async(endpoints).map(MultiMessageStream)
-}
-
-/// Subscribes to a single ZMQ endpoint and returns a `MessageStream`.
-#[deprecated(
-    since = "1.3.2",
-    note = "Use subscribe_async. The name changed because there is no distinction made anymore between subscribing to 1 or more endpoints."
-)]
-pub fn subscribe_single_async(endpoint: &str) -> Result<subscribe_async_stream::MessageStream> {
-    subscribe_async(&[endpoint])
-}
-
 pub mod subscribe_async_stream {
-    use crate::{error::Result, message::Message, subscribe::message_from_multipart_zmq_message};
+    use super::*;
+
+    use crate::subscribe::message_from_multipart_zmq_message;
+
     use async_zmq::Subscribe;
-    use core::{
-        pin::Pin,
-        task::{Context as AsyncContext, Poll},
-    };
-    use futures_util::{
-        stream::{FusedStream, StreamExt},
-        Stream,
-    };
+    use futures_util::stream::FusedStream;
+    use futures_util::Stream;
 
     /// Stream returned by [`subscribe_async`][super::subscribe_async].
     pub struct MessageStream {
@@ -152,17 +83,11 @@ pub fn subscribe_async(endpoints: &[&str]) -> Result<subscribe_async_stream::Mes
 }
 
 pub mod subscribe_async_monitor_stream {
-    use super::{subscribe_async_stream, SocketMessage};
-    use crate::{error::Result, monitor::MonitorMessage};
+    use super::*;
+
     use async_zmq::Subscribe;
-    use core::{
-        pin::Pin,
-        task::{Context as AsyncContext, Poll},
-    };
-    use futures_util::{
-        stream::{FusedStream, StreamExt},
-        Stream,
-    };
+    use futures_util::stream::FusedStream;
+    use futures_util::Stream;
     use zmq::Socket;
 
     pub(super) enum Empty {}

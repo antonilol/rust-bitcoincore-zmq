@@ -1,8 +1,7 @@
+use std::sync::{Arc, Mutex};
+use std::thread;
+
 use bitcoincore_zmq::subscribe_receiver;
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
 
 /// Use 4 threads to handle messages
 const POOL_THREADS: usize = 4;
